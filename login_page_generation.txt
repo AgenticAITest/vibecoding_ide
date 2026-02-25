@@ -1,0 +1,27 @@
+What was done (6 files, 2 new + 4 modified)
+1. package.json — Added expo-secure-store and zustand dependencies
+
+2. src/api/client.ts — Extended with:
+
+login() — OAuth2 password grant via POST /oauth/token (using x-www-form-urlencoded, discovered from the API's Swagger securityDefinitions)
+persistToken() / loadPersistedToken() / clearPersistedToken() — Encrypted token storage via expo-secure-store
+3. src/store/authStore.ts (new) — Zustand store managing:
+
+login(username, password) → calls OAuth2 token endpoint → persists token → verifies with GET /sys/account/acl to fetch user profile
+logout() → clears token from storage & memory
+initialize() → restores session on app start (checks persisted token)
+4. src/components/Input.tsx — Wrapped with React.forwardRef to support keyboard "next" field focus (backward-compatible)
+
+5. app/login.tsx — Fully rewritten with:
+
+Form validation — email format regex + password min 6 chars, inline error messages
+Loading state — button disabled + spinner, inputs non-editable during request
+Error banner — API errors (wrong credentials, network) shown above the form
+Keyboard handling — KeyboardAvoidingView + ScrollView; email "next" focuses password, password "go" submits
+Forgot Password link → navigates to /forgot-password
+Auth flow — calls store's login() → on success navigates to dashboard
+6. app/forgot-password.tsx (new) — Uses existing POST /sys/forgetPassword endpoint with loading/error/success states
+
+7. app/index.tsx — Auth-aware entry point: restores persisted token on startup, routes to dashboard if authenticated or login if not
+
+Note: Run npm install in the projects/my_app directory before building to install the new dependencies.

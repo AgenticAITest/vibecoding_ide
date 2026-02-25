@@ -1,0 +1,14 @@
+.center-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary);
+}
+
+.center-panel__content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  position: relative;
+  z-index: 0;
+}

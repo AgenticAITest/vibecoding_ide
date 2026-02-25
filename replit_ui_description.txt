@@ -1,0 +1,23 @@
+Left panel:
+- project name
+- chat below it
+- option for build or plan
+- can attach image for analysis
+- agent tools settings 
+	a. Thinking level: fast, thinking.  
+	b. Autonomous level: 
+	b.1 Low: Generates and executes on task lists
+	b.2 Medium: Reviews Latest code changes and fixes issues
+	b.3 High: Expands review scope to entire app
+	b.4 Max: Plans and completes new work independently 
+
+Middle panel. This is done thru tabs:
+Preview (page preview if code completes; default)
+Console (log console)
+Database (DB preview, they use neon)
+Secrets (managing tokens and other secrets)
+Git (managing git connection)
+Shell (terminal)
+etc which are not needed
+
+Button on the top right corner is to show/hide files and folders.

@@ -1,0 +1,80 @@
+.tool-bubble {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+.tool-bubble__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  text-align: left;
+}
+
+.tool-bubble__header:hover {
+  background: var(--border-color);
+}
+
+.tool-bubble__status {
+  font-size: 11px;
+}
+
+.tool-bubble__status--running {
+  color: var(--warning);
+}
+
+.tool-bubble__status--done {
+  color: var(--success);
+}
+
+.tool-bubble__status--error {
+  color: var(--error);
+}
+
+.tool-bubble__name {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  flex: 1;
+}
+
+.tool-bubble__chevron {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.tool-bubble__details {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-secondary);
+}
+
+.tool-bubble__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.tool-bubble__code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow-y: auto;
+  margin: 0;
+}

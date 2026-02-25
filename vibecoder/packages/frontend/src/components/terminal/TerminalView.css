@@ -1,0 +1,24 @@
+.terminal-view {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0e1525;
+}
+
+.terminal-view .xterm {
+  padding: 4px 8px;
+  height: 100%;
+}
+
+.terminal-view .xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminal-view .xterm-viewport::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb, #333);
+  border-radius: 4px;
+}
+
+.terminal-view .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
