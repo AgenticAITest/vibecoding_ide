@@ -2,12 +2,22 @@ import type { Tab } from '@vibecoder/shared';
 import { useTabStore } from '../../store/tabStore';
 import { WelcomePage } from '../welcome/WelcomePage';
 import { CodeEditor } from '../editor/CodeEditor';
+import { ImageViewer } from '../editor/ImageViewer';
 import { TerminalView } from '../terminal/TerminalView';
 import { ProjectWizard } from '../wizard/ProjectWizard';
 import { PreviewPanel } from '../preview/PreviewPanel';
 import { GitPanel } from '../git/GitPanel';
 import { ProjectList } from '../projects/ProjectList';
 import { ConsolePanel } from '../console/ConsolePanel';
+
+const IMAGE_EXTENSIONS = new Set([
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'bmp',
+]);
+
+function isImageFile(filePath: string): boolean {
+  const ext = filePath.split('.').pop()?.toLowerCase() || '';
+  return IMAGE_EXTENSIONS.has(ext);
+}
 
 /**
  * Render a single tab's content.
@@ -19,7 +29,7 @@ function renderTab(tab: Tab) {
     case 'welcome':
       return <WelcomePage />;
     case 'editor':
-      return <CodeEditor filePath={tab.path!} />;
+      return isImageFile(tab.path!) ? <ImageViewer filePath={tab.path!} /> : <CodeEditor filePath={tab.path!} />;
     case 'terminal':
       return <TerminalView sessionId={tab.id} />;
     case 'wizard':

@@ -61,6 +61,27 @@ filesRouter.post('/upload', upload.single('image'), (req, res) => {
   });
 });
 
+// GET /api/files/raw?path=... — serve file with correct content-type (for images, etc.)
+filesRouter.get('/raw', async (req, res) => {
+  const filePath = req.query.path as string;
+  if (!filePath) {
+    res.status(400).json({ error: 'Missing path query parameter' });
+    return;
+  }
+  const projectDir = getProjectDir();
+  const absolute = path.resolve(projectDir, filePath);
+  if (!absolute.startsWith(projectDir)) {
+    res.status(403).json({ error: 'Path traversal detected' });
+    return;
+  }
+  try {
+    await fs.access(absolute);
+    res.sendFile(absolute);
+  } catch {
+    res.status(404).json({ error: `File not found: ${filePath}` });
+  }
+});
+
 // GET /api/files/tree
 filesRouter.get('/tree', async (_req, res) => {
   try {
