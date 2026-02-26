@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import type { ScaffoldConfig, ProjectInfo } from '@vibecoder/shared';
 import { scaffold } from './scaffolder.js';
+import { scaffoldFlutter } from './scaffolderFlutter.js';
 import { setProjectDir, stopWatcher, startWatcher } from './fileSystem.js';
 
 // Projects root: vibecoding_ide/projects/
@@ -74,7 +75,11 @@ export async function createProject(config: ScaffoldConfig): Promise<ProjectInfo
     throw new Error(`Project "${config.projectName}" already exists`);
   }
 
-  await scaffold(config, projectPath);
+  if (config.framework === 'flutter') {
+    await scaffoldFlutter(config, projectPath);
+  } else {
+    await scaffold(config, projectPath);
+  }
 
   return {
     name: config.projectName,

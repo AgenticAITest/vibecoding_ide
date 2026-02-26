@@ -1,8 +1,8 @@
 import { WebSocket } from 'ws';
-import type { WSMessage, ExpoUrlInfo } from '@vibecoder/shared';
+import type { WSMessage, PreviewInfo } from '@vibecoder/shared';
 
 const clients = new Set<WebSocket>();
-let latestExpoUrl: ExpoUrlInfo | null = null;
+let latestPreviewInfo: PreviewInfo | null = null;
 
 export function registerPreviewClient(ws: WebSocket): void {
   clients.add(ws);
@@ -23,18 +23,18 @@ function broadcast(type: string, payload: unknown): void {
   }
 }
 
-export function broadcastExpoUrl(info: ExpoUrlInfo): void {
-  latestExpoUrl = info;
+export function broadcastPreviewUrl(info: PreviewInfo): void {
+  latestPreviewInfo = info;
   broadcast('preview:url-detected', info);
 }
 
 export function broadcastServerStopped(terminalSessionId: string): void {
-  if (latestExpoUrl?.terminalSessionId === terminalSessionId) {
-    latestExpoUrl = null;
+  if (latestPreviewInfo?.terminalSessionId === terminalSessionId) {
+    latestPreviewInfo = null;
   }
   broadcast('preview:server-stopped', { terminalSessionId });
 }
 
-export function getLatestExpoUrl(): ExpoUrlInfo | null {
-  return latestExpoUrl;
+export function getLatestPreviewInfo(): PreviewInfo | null {
+  return latestPreviewInfo;
 }

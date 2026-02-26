@@ -1,4 +1,5 @@
 import QRCode from 'qrcode';
+import type { ProjectFramework } from '@vibecoder/shared';
 
 /** Strip ANSI escape sequences from terminal output — comprehensive */
 export function stripAnsi(str: string): string {
@@ -23,6 +24,8 @@ export function stripAnsi(str: string): string {
 // Per-session line buffers for multi-chunk accumulation
 const sessionBuffers = new Map<string, string>();
 
+// --- Expo patterns ---
+
 // Expo Go: exp://192.168.1.8:8081 or exp://localhost:8081
 const EXPO_URL_RE = /exp:\/\/[\w.-]+:\d+/;
 
@@ -38,16 +41,22 @@ const METRO_WAITING_RE = /Metro waiting on\s+((?:exp|http)[^\s]+)/;
 // "Metro: <url>" format
 const METRO_LABEL_RE = /Metro:\s+((?:exp|http)[^\s]+)/;
 
+// --- Flutter patterns ---
+
+// Flutter web server: "is being served at http://localhost:8080"
+const FLUTTER_SERVED_RE = /is being served at\s+(http:\/\/[\w.-]+:\d+)/;
+
 export interface ScanResult {
-  expoUrl: string | null;
+  nativeUrl: string | null;
   webUrl: string | null;
+  framework: ProjectFramework;
 }
 
 /**
- * Accumulate PTY output chunks and scan for Expo URLs.
+ * Accumulate PTY output chunks and scan for dev server URLs (Expo or Flutter).
  * Returns a ScanResult if a new URL is found, or null if nothing detected.
  */
-export function scanForExpoUrl(sessionId: string, data: string): ScanResult | null {
+export function scanForDevServerUrl(sessionId: string, data: string): ScanResult | null {
   const existing = sessionBuffers.get(sessionId) || '';
   const combined = existing + data;
 
@@ -57,7 +66,16 @@ export function scanForExpoUrl(sessionId: string, data: string): ScanResult | nu
 
   const clean = stripAnsi(trimmed);
 
-  let expoUrl: string | null = null;
+  // --- Try Flutter first (more specific pattern) ---
+  const flutterMatch = clean.match(FLUTTER_SERVED_RE);
+  if (flutterMatch) {
+    const webUrl = flutterMatch[1];
+    console.log(`[DevServer] Flutter URL detected in session ${sessionId}: web=${webUrl}`);
+    return { nativeUrl: null, webUrl, framework: 'flutter' };
+  }
+
+  // --- Expo patterns ---
+  let nativeUrl: string | null = null;
   let webUrl: string | null = null;
 
   // Try "Metro waiting on" pattern first (most specific)
@@ -65,19 +83,19 @@ export function scanForExpoUrl(sessionId: string, data: string): ScanResult | nu
   if (waitingMatch) {
     const url = waitingMatch[1];
     if (url.startsWith('exp://') || url.startsWith('exp+')) {
-      expoUrl = url;
+      nativeUrl = url;
     } else if (url.startsWith('http://')) {
       webUrl = url;
     }
   }
 
   // Try "Metro: <url>" pattern
-  if (!expoUrl) {
+  if (!nativeUrl) {
     const labelMatch = clean.match(METRO_LABEL_RE);
     if (labelMatch) {
       const url = labelMatch[1];
       if (url.startsWith('exp://') || url.startsWith('exp+')) {
-        expoUrl = url;
+        nativeUrl = url;
       } else if (url.startsWith('http://') && !webUrl) {
         webUrl = url;
       }
@@ -85,15 +103,15 @@ export function scanForExpoUrl(sessionId: string, data: string): ScanResult | nu
   }
 
   // Fallback: bare exp:// URL anywhere
-  if (!expoUrl) {
+  if (!nativeUrl) {
     const expoMatch = clean.match(EXPO_URL_RE);
-    if (expoMatch) expoUrl = expoMatch[0];
+    if (expoMatch) nativeUrl = expoMatch[0];
   }
 
   // Fallback: dev client URL
-  if (!expoUrl) {
+  if (!nativeUrl) {
     const devMatch = clean.match(DEV_CLIENT_RE);
-    if (devMatch) expoUrl = devMatch[0];
+    if (devMatch) nativeUrl = devMatch[0];
   }
 
   // Fallback: bare http URL (only localhost or LAN IPs, not random http refs)
@@ -102,9 +120,9 @@ export function scanForExpoUrl(sessionId: string, data: string): ScanResult | nu
     if (httpMatch) webUrl = httpMatch[0];
   }
 
-  if (expoUrl || webUrl) {
-    console.log(`[Expo] URL detected in session ${sessionId}: expo=${expoUrl}, web=${webUrl}`);
-    return { expoUrl, webUrl };
+  if (nativeUrl || webUrl) {
+    console.log(`[DevServer] Expo URL detected in session ${sessionId}: native=${nativeUrl}, web=${webUrl}`);
+    return { nativeUrl, webUrl, framework: 'expo' };
   }
   return null;
 }

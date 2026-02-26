@@ -4,7 +4,7 @@ import type { WSMessage } from '@vibecoder/shared';
 import { handleAiMessage, cleanupConnection } from './aiChannel.js';
 import { handleFileMessage, registerFileClient, unregisterFileClient } from './fileChannel.js';
 import { handleTerminalMessage, cleanupTerminalConnection } from './terminalChannel.js';
-import { registerPreviewClient, unregisterPreviewClient, getLatestExpoUrl } from './previewChannel.js';
+import { registerPreviewClient, unregisterPreviewClient, getLatestPreviewInfo } from './previewChannel.js';
 
 export function setupWebSocket(server: Server) {
   const wss = new WebSocketServer({ server });
@@ -16,7 +16,7 @@ export function setupWebSocket(server: Server) {
     registerPreviewClient(ws);
 
     // Send cached preview URL if one exists (client may connect after URL was detected)
-    const cachedUrl = getLatestExpoUrl();
+    const cachedUrl = getLatestPreviewInfo();
     if (cachedUrl) {
       const msg: WSMessage = {
         channel: 'preview',

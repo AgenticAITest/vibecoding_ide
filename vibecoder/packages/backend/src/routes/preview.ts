@@ -128,7 +128,7 @@ function injectInterceptor(html: string, port: number): string {
 export const previewRouter = Router();
 
 /**
- * Proxy all requests to the Metro/Expo web dev server,
+ * Proxy all requests to the web dev server (Expo/Flutter),
  * stripping X-Frame-Options and CSP headers so the page
  * can be embedded in an iframe.
  */
@@ -198,7 +198,7 @@ previewRouter.use('/', (req, res) => {
   proxyReq.on('error', (err: NodeJS.ErrnoException) => {
     const isRefused = err.code === 'ECONNREFUSED';
     const detail = isRefused
-      ? `Waiting for Metro dev server on port ${targetPort}...`
+      ? `Waiting for dev server on port ${targetPort}...`
       : err.message || err.code || 'Unknown error';
     console.error(`[Preview Proxy] Error: ${detail}`);
     if (!res.headersSent) {
@@ -220,7 +220,7 @@ previewRouter.use('/', (req, res) => {
 ${isRefused ? '<script>setTimeout(()=>location.reload(),3000)</script>' : ''}
 </head><body><div class="box">
   <div class="spinner"></div>
-  <p>${isRefused ? 'Waiting for Metro to start...' : detail}</p>
+  <p>${isRefused ? 'Waiting for dev server to start...' : detail}</p>
   <p class="detail">${isRefused ? 'Auto-retrying every 3 seconds' : 'Check the terminal for errors'}</p>
 </div></body></html>`);
     }

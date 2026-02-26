@@ -2,37 +2,50 @@ import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { usePreviewStore } from '../../store/previewStore';
 import { useTabStore } from '../../store/tabStore';
 import { useTerminalStore } from '../../store/terminalStore';
+import { useFileStore } from '../../store/fileStore';
 import { useWebSocket } from '../../hooks/useWebSocket';
-import type { WSMessage } from '@vibecoder/shared';
+import type { WSMessage, ProjectFramework } from '@vibecoder/shared';
 import './PreviewPanel.css';
 
-const EXPO_SESSION_ID = 'expo-server';
+const PREVIEW_SESSION_ID = 'preview-server';
 const DEVICE_OUTER_W = 381; // 375 + 6 (3px border each side)
 const DEVICE_OUTER_H = 818; // 812 + 6 (3px border each side)
 
+/** Detect framework from the file tree: if pubspec.yaml exists at root, it's Flutter */
+function detectFramework(tree: { name: string }[]): ProjectFramework {
+  return tree.some((n) => n.name === 'pubspec.yaml') ? 'flutter' : 'expo';
+}
+
 export function PreviewPanel() {
-  const expoUrl = usePreviewStore((s) => s.expoUrl);
+  const nativeUrl = usePreviewStore((s) => s.nativeUrl);
   const webUrl = usePreviewStore((s) => s.webUrl);
   const qrDataUrl = usePreviewStore((s) => s.qrDataUrl);
   const viewMode = usePreviewStore((s) => s.viewMode);
   const setViewMode = usePreviewStore((s) => s.setViewMode);
   const serverState = usePreviewStore((s) => s.serverState);
   const setServerState = usePreviewStore((s) => s.setServerState);
-  const expoTerminalId = usePreviewStore((s) => s.expoTerminalId);
-  const setExpoTerminalId = usePreviewStore((s) => s.setExpoTerminalId);
+  const previewTerminalId = usePreviewStore((s) => s.previewTerminalId);
+  const setPreviewTerminalId = usePreviewStore((s) => s.setPreviewTerminalId);
+  const storeFramework = usePreviewStore((s) => s.framework);
   const activeTabId = useTabStore((s) => s.activeTabId);
+  const tree = useFileStore((s) => s.tree);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [iframeError, setIframeError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [metroReady, setMetroReady] = useState(false);
+  const [serverReady, setServerReady] = useState(false);
   const [iframeScale, setIframeScale] = useState(1);
   const deviceContainerRef = useRef<HTMLDivElement>(null);
 
-  const isVisible = activeTabId === 'preview';
-  const hasUrl = expoUrl || webUrl;
+  // Detect framework from file tree; fall back to store value when server is running
+  const detectedFramework = useMemo(() => detectFramework(tree), [tree]);
+  const framework: ProjectFramework = storeFramework !== 'expo' ? storeFramework : detectedFramework;
+  const isFlutter = framework === 'flutter';
 
-  // Measure the device container and compute scale so the full 375×812 device fits
+  const isVisible = activeTabId === 'preview';
+  const hasUrl = nativeUrl || webUrl;
+
+  // Measure the device container and compute scale so the full 375x812 device fits
   useEffect(() => {
     const el = deviceContainerRef.current;
     if (!el) return;
@@ -47,99 +60,110 @@ export function PreviewPanel() {
     return () => ro.disconnect();
   }, []);
 
-  // Derive port from expo/web URL
-  const metroPort = useMemo(() => {
+  // Derive port from native/web URL
+  const devServerPort = useMemo(() => {
     if (webUrl) {
       const m = webUrl.match(/:(\d+)/);
-      return m ? m[1] : '8081';
+      return m ? m[1] : isFlutter ? '8080' : '8081';
     }
-    if (expoUrl) {
-      const m = expoUrl.match(/:(\d+)/);
+    if (nativeUrl) {
+      const m = nativeUrl.match(/:(\d+)/);
       return m ? m[1] : '8081';
     }
     return null;
-  }, [expoUrl, webUrl]);
+  }, [nativeUrl, webUrl, isFlutter]);
 
-  // Direct Metro URL — used for display only.
-  const metroWebUrl = metroPort ? `http://localhost:${metroPort}` : null;
+  // Direct dev server URL — used for display only.
+  const devServerUrl = devServerPort ? `http://localhost:${devServerPort}` : null;
   // Proxied URL — routes through backend so we can inject the console interceptor.
-  const proxyUrl = metroPort ? `/api/preview-proxy/?_port=${metroPort}` : null;
-  const displayUrl = expoUrl || webUrl || '';
+  const proxyUrl = devServerPort ? `/api/preview-proxy/?_port=${devServerPort}` : null;
+  const displayUrl = nativeUrl || webUrl || '';
 
   // --- Terminal channel: listen for terminal:created and terminal:exit ---
   const terminalHandler = useCallback(
     (msg: WSMessage) => {
       const payload = msg.payload as { type: string; sessionId: string; exitCode?: number };
-      if (payload.sessionId !== EXPO_SESSION_ID) return;
+      if (payload.sessionId !== PREVIEW_SESSION_ID) return;
 
       if (payload.type === 'terminal:created') {
-        // PTY is ready — send the Expo start command
+        // PTY is ready — send the appropriate start command
         const isWindows = navigator.platform.startsWith('Win');
-        const command = isWindows
-          ? "$env:BROWSER='none'; npx expo start --web\r"
-          : 'BROWSER=none npx expo start --web\n';
+        let command: string;
+
+        if (isFlutter) {
+          command = isWindows
+            ? 'flutter run -d web-server --web-hostname=localhost --web-port=8080\r'
+            : 'flutter run -d web-server --web-hostname=localhost --web-port=8080\n';
+        } else {
+          command = isWindows
+            ? "$env:BROWSER='none'; npx expo start --web\r"
+            : 'BROWSER=none npx expo start --web\n';
+        }
+
         sendTerminal('terminal:input', {
           type: 'terminal:input',
-          sessionId: EXPO_SESSION_ID,
+          sessionId: PREVIEW_SESSION_ID,
           data: command,
         });
       }
 
       if (payload.type === 'terminal:exit') {
         setServerState('stopped');
-        setExpoTerminalId(null);
+        setPreviewTerminalId(null);
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [isFlutter],
   );
 
   const { send: sendTerminal } = useWebSocket('terminal', terminalHandler);
 
-  // Health-check Metro via the proxy before loading the iframe.
+  // Health-check dev server via the proxy before loading the iframe.
   useEffect(() => {
-    if (!metroWebUrl || !isVisible || viewMode !== 'web') return;
-    if (metroReady) return;
+    if (!devServerUrl || !isVisible || viewMode !== 'web') return;
+    if (serverReady) return;
 
     let cancelled = false;
-    const checkMetro = async () => {
+    const checkServer = async () => {
       try {
-        const res = await fetch(`/api/preview-proxy/?_port=${metroPort}`, {
+        const res = await fetch(`/api/preview-proxy/?_port=${devServerPort}`, {
           method: 'HEAD',
         });
         if (!cancelled && res.ok) {
-          setMetroReady(true);
+          setServerReady(true);
         }
       } catch {
-        // Metro not ready yet
+        // Dev server not ready yet
       }
-      if (!cancelled && !metroReady) {
-        setTimeout(checkMetro, 2000);
+      if (!cancelled && !serverReady) {
+        setTimeout(checkServer, 2000);
       }
     };
-    checkMetro();
+    checkServer();
     return () => { cancelled = true; };
-  }, [metroWebUrl, metroPort, isVisible, viewMode, metroReady]);
+  }, [devServerUrl, devServerPort, isVisible, viewMode, serverReady]);
 
   // Fallback: when stuck in 'starting' with no URL detected, probe default
-  // port 8081 to see if Metro is already running from a previous session.
-  const setExpoInfo = usePreviewStore((s) => s.setExpoInfo);
+  // port to see if dev server is already running from a previous session.
+  const setPreviewInfo = usePreviewStore((s) => s.setPreviewInfo);
   useEffect(() => {
     if (serverState !== 'starting' || hasUrl) return;
 
+    const defaultPort = isFlutter ? '8080' : '8081';
     let cancelled = false;
     const probeDefault = async () => {
       try {
-        const res = await fetch('/api/preview-proxy/?_port=8081', {
+        const res = await fetch(`/api/preview-proxy/?_port=${defaultPort}`, {
           method: 'HEAD',
         });
         if (!cancelled && res.ok) {
-          // Metro is already running — populate the store
-          setExpoInfo({
-            expoUrl: '',
-            webUrl: 'http://localhost:8081',
+          // Dev server is already running — populate the store
+          setPreviewInfo({
+            nativeUrl: null,
+            webUrl: `http://localhost:${defaultPort}`,
             qrDataUrl: null,
-            terminalSessionId: EXPO_SESSION_ID,
+            terminalSessionId: PREVIEW_SESSION_ID,
+            framework,
           });
           setServerState('running');
         }
@@ -153,12 +177,12 @@ export function PreviewPanel() {
     // Start probing after a short delay to give the normal URL detection a chance
     const timer = setTimeout(probeDefault, 3000);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [serverState, hasUrl, setExpoInfo, setServerState]);
+  }, [serverState, hasUrl, setPreviewInfo, setServerState, isFlutter, framework]);
 
   // Reset readiness when URL changes
   useEffect(() => {
-    setMetroReady(false);
-  }, [metroWebUrl]);
+    setServerReady(false);
+  }, [devServerUrl]);
 
   // Reset iframe state when switching to web view
   useEffect(() => {
@@ -172,30 +196,30 @@ export function PreviewPanel() {
   const handleStartPreview = useCallback(() => {
     // Guard: don't create another if one already exists
     const tabs = useTabStore.getState().tabs;
-    if (expoTerminalId && tabs.find((t) => t.id === expoTerminalId)) return;
+    if (previewTerminalId && tabs.find((t) => t.id === previewTerminalId)) return;
 
     setServerState('starting');
     setViewMode('web');
 
     // Register terminal session in terminal store
-    useTerminalStore.getState().addSession(EXPO_SESSION_ID, 0);
+    useTerminalStore.getState().addSession(PREVIEW_SESSION_ID, 0);
 
     // Create terminal tab (not focused — stays on preview tab)
     const currentActive = useTabStore.getState().activeTabId;
     useTabStore.getState().openTab({
-      id: EXPO_SESSION_ID,
+      id: PREVIEW_SESSION_ID,
       type: 'terminal',
-      label: 'Expo Server',
+      label: isFlutter ? 'Flutter Server' : 'Expo Server',
       closable: true,
     });
     // openTab focuses the new tab — restore focus to preview
     useTabStore.getState().setActiveTab(currentActive);
 
-    setExpoTerminalId(EXPO_SESSION_ID);
-  }, [expoTerminalId, setServerState, setViewMode, setExpoTerminalId]);
+    setPreviewTerminalId(PREVIEW_SESSION_ID);
+  }, [previewTerminalId, setServerState, setViewMode, setPreviewTerminalId, isFlutter]);
 
   const handleCopyUrl = () => {
-    const urlToCopy = viewMode === 'web' ? (metroWebUrl || displayUrl) : displayUrl;
+    const urlToCopy = viewMode === 'web' ? (devServerUrl || displayUrl) : displayUrl;
     if (urlToCopy) {
       navigator.clipboard.writeText(urlToCopy);
       setCopied(true);
@@ -206,16 +230,20 @@ export function PreviewPanel() {
   const handleRefresh = useCallback(() => {
     setIframeError(null);
     setIframeLoaded(false);
-    if (metroReady && iframeRef.current && proxyUrl) {
+    if (serverReady && iframeRef.current && proxyUrl) {
       iframeRef.current.src = proxyUrl;
     } else {
-      setMetroReady(false);
+      setServerReady(false);
     }
-  }, [metroReady, proxyUrl]);
+  }, [serverReady, proxyUrl]);
 
   const handleIframeLoad = () => {
     setIframeLoaded(true);
   };
+
+  // Framework-specific labels
+  const serverLabel = isFlutter ? 'Flutter dev server' : 'Metro';
+  const hintLabel = isFlutter ? 'Flutter web dev server' : 'Expo dev server';
 
   // --- Determine display state ---
   // If URL exists (from any source), show running state regardless of serverState
@@ -254,7 +282,7 @@ export function PreviewPanel() {
                 Start Preview
               </button>
               <p className="preview__empty-hint">
-                Starts Expo dev server and loads the web preview
+                Starts {hintLabel} and loads the web preview
               </p>
             </>
           )}
@@ -269,9 +297,9 @@ export function PreviewPanel() {
       <div className="preview">
         <div className="preview__empty">
           <div className="preview__spinner" />
-          <p className="preview__empty-title">Starting Metro...</p>
+          <p className="preview__empty-title">Starting {serverLabel}...</p>
           <p className="preview__empty-hint">
-            Setting up the Expo dev server
+            Setting up the {hintLabel}
           </p>
         </div>
       </div>
@@ -283,36 +311,39 @@ export function PreviewPanel() {
     <div className="preview">
       {showToolbar && (
         <div className="preview__toolbar">
-          <div className="preview__toggle">
-            <button
-              className={`preview__toggle-btn ${viewMode === 'qr' ? 'preview__toggle-btn--active' : ''}`}
-              onClick={() => setViewMode('qr')}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="2" width="8" height="8" />
-                <rect x="14" y="2" width="8" height="8" />
-                <rect x="2" y="14" width="8" height="8" />
-                <rect x="14" y="14" width="4" height="4" />
-                <line x1="22" y1="14" x2="22" y2="22" />
-                <line x1="14" y1="22" x2="22" y2="22" />
-              </svg>
-              QR
-            </button>
-            <button
-              className={`preview__toggle-btn ${viewMode === 'web' ? 'preview__toggle-btn--active' : ''}`}
-              onClick={() => setViewMode('web')}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="2" y1="12" x2="22" y2="12" />
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-              </svg>
-              Web
-            </button>
-          </div>
+          {/* Only show QR/Web toggle for Expo — Flutter is web-only */}
+          {!isFlutter && (
+            <div className="preview__toggle">
+              <button
+                className={`preview__toggle-btn ${viewMode === 'qr' ? 'preview__toggle-btn--active' : ''}`}
+                onClick={() => setViewMode('qr')}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="2" width="8" height="8" />
+                  <rect x="14" y="2" width="8" height="8" />
+                  <rect x="2" y="14" width="8" height="8" />
+                  <rect x="14" y="14" width="4" height="4" />
+                  <line x1="22" y1="14" x2="22" y2="22" />
+                  <line x1="14" y1="22" x2="22" y2="22" />
+                </svg>
+                QR
+              </button>
+              <button
+                className={`preview__toggle-btn ${viewMode === 'web' ? 'preview__toggle-btn--active' : ''}`}
+                onClick={() => setViewMode('web')}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+                Web
+              </button>
+            </div>
+          )}
 
-          <div className="preview__url" title={viewMode === 'web' ? (metroWebUrl || '') : displayUrl}>
-            {viewMode === 'web' ? metroWebUrl : displayUrl}
+          <div className="preview__url" title={viewMode === 'web' ? (devServerUrl || '') : displayUrl}>
+            {viewMode === 'web' ? devServerUrl : displayUrl}
           </div>
 
           <div className="preview__actions">
@@ -341,7 +372,7 @@ export function PreviewPanel() {
       )}
 
       <div className="preview__content">
-        {viewMode === 'qr' ? (
+        {viewMode === 'qr' && !isFlutter ? (
           <div className="preview__qr">
             {qrDataUrl && (
               <img className="preview__qr-img" src={qrDataUrl} alt="QR Code" />
@@ -367,7 +398,7 @@ export function PreviewPanel() {
               Retry
             </button>
           </div>
-        ) : metroWebUrl && metroReady ? (
+        ) : devServerUrl && serverReady ? (
           <div className="preview__device-container" ref={deviceContainerRef}>
             <div
               className="preview__device-sizer"
@@ -396,26 +427,30 @@ export function PreviewPanel() {
                     src={proxyUrl!}
                     title="Web Preview"
                     onLoad={handleIframeLoad}
-                    onError={() => setIframeError('Failed to connect to Metro dev server.')}
+                    onError={() => setIframeError(`Failed to connect to ${serverLabel}.`)}
                   />
                 </div>
                 <div className="preview__device-home" />
               </div>
             </div>
           </div>
-        ) : metroWebUrl && !metroReady ? (
+        ) : devServerUrl && !serverReady ? (
           <div className="preview__web-error">
             <div className="preview__spinner" />
-            <p className="preview__web-error-title">Waiting for Metro to start...</p>
+            <p className="preview__web-error-title">Waiting for {serverLabel} to start...</p>
             <p className="preview__web-error-hint">
-              Checking localhost:{metroPort} every 2 seconds
+              Checking localhost:{devServerPort} every 2 seconds
             </p>
           </div>
         ) : (
           <div className="preview__web-error">
             <p className="preview__web-error-title">No web URL available</p>
             <p className="preview__web-error-hint">
-              Run <code>npx expo start --web</code> in the terminal.
+              {isFlutter ? (
+                <>Run <code>flutter run -d web-server</code> in the terminal.</>
+              ) : (
+                <>Run <code>npx expo start --web</code> in the terminal.</>
+              )}
             </p>
           </div>
         )}

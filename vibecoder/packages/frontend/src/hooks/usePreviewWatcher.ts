@@ -1,11 +1,11 @@
 import { useCallback } from 'react';
-import type { WSMessage, ExpoUrlInfo } from '@vibecoder/shared';
+import type { WSMessage, PreviewInfo } from '@vibecoder/shared';
 import { useWebSocket } from './useWebSocket';
 import { usePreviewStore } from '../store/previewStore';
 import { useTabStore } from '../store/tabStore';
 
 export function usePreviewWatcher() {
-  const setExpoInfo = usePreviewStore((s) => s.setExpoInfo);
+  const setPreviewInfo = usePreviewStore((s) => s.setPreviewInfo);
   const clearPreview = usePreviewStore((s) => s.clearPreview);
   const setServerState = usePreviewStore((s) => s.setServerState);
 
@@ -13,8 +13,8 @@ export function usePreviewWatcher() {
     (msg: WSMessage) => {
       switch (msg.type) {
         case 'preview:url-detected': {
-          const info = msg.payload as ExpoUrlInfo;
-          setExpoInfo(info);
+          const info = msg.payload as PreviewInfo;
+          setPreviewInfo(info);
           setServerState('running');
           // Only auto-open preview tab if it doesn't already exist —
           // never steal focus from the terminal or other tabs
@@ -40,7 +40,7 @@ export function usePreviewWatcher() {
         }
       }
     },
-    [setExpoInfo, clearPreview, setServerState]
+    [setPreviewInfo, clearPreview, setServerState]
   );
 
   useWebSocket('preview', handler);

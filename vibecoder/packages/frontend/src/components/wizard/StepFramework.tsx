@@ -37,7 +37,6 @@ const FRAMEWORKS: FrameworkOption[] = [
       'Hot reload',
       'Single codebase for iOS & Android',
     ],
-    comingSoon: true,
   },
 ];
 

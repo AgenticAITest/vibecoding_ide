@@ -7,8 +7,8 @@ import {
   destroyPtySession,
   destroyManySessions,
 } from '../services/ptyService.js';
-import { scanForExpoUrl, generateQrDataUrl, clearSessionBuffer } from '../services/expo.js';
-import { broadcastExpoUrl, broadcastServerStopped } from './previewChannel.js';
+import { scanForDevServerUrl, generateQrDataUrl, clearSessionBuffer } from '../services/devServerScanner.js';
+import { broadcastPreviewUrl, broadcastServerStopped } from './previewChannel.js';
 
 /** Track which terminal sessions belong to each WS connection */
 const connectionSessions = new Map<WebSocket, Set<string>>();
@@ -48,7 +48,7 @@ export function handleTerminalMessage(ws: WebSocket, msg: WSMessage): void {
         sessionId,
         cols,
         rows,
-        // onData — PTY output → client + scan for Expo URLs
+        // onData — PTY output → client + scan for dev server URLs
         (data) => {
           sendTerminalEvent(ws, {
             type: 'terminal:output',
@@ -56,31 +56,44 @@ export function handleTerminalMessage(ws: WebSocket, msg: WSMessage): void {
             data,
           });
 
-          // Scan for Expo/Metro URLs in terminal output
-          const result = scanForExpoUrl(sessionId, data);
+          // Scan for Expo/Flutter dev server URLs in terminal output
+          const result = scanForDevServerUrl(sessionId, data);
           if (result) {
-            const key = `${result.expoUrl}|${result.webUrl}`;
+            const key = `${result.nativeUrl}|${result.webUrl}`;
             if (!detectedUrls.has(key)) {
               detectedUrls.add(key);
-              console.log(`[Expo] New URL key detected: ${key}`);
-              const url = result.expoUrl || result.webUrl;
-              if (url) {
-                generateQrDataUrl(url).then((qrDataUrl) => {
-                  console.log(`[Expo] QR generated, broadcasting...`);
-                  broadcastExpoUrl({
-                    expoUrl: result.expoUrl,
+              console.log(`[Preview] New URL key detected: ${key} (framework: ${result.framework})`);
+
+              // Only generate QR for Expo (Flutter web-only, no QR needed)
+              const nativeUrl = result.nativeUrl;
+              if (nativeUrl && result.framework === 'expo') {
+                generateQrDataUrl(nativeUrl).then((qrDataUrl) => {
+                  console.log(`[Preview] QR generated, broadcasting...`);
+                  broadcastPreviewUrl({
+                    nativeUrl: result.nativeUrl,
                     webUrl: result.webUrl,
                     qrDataUrl,
                     terminalSessionId: sessionId,
+                    framework: result.framework,
                   });
                 }).catch((err) => {
-                  console.error(`[Expo] QR generation failed:`, err);
-                  broadcastExpoUrl({
-                    expoUrl: result.expoUrl,
+                  console.error(`[Preview] QR generation failed:`, err);
+                  broadcastPreviewUrl({
+                    nativeUrl: result.nativeUrl,
                     webUrl: result.webUrl,
                     qrDataUrl: null,
                     terminalSessionId: sessionId,
+                    framework: result.framework,
                   });
+                });
+              } else {
+                // Flutter or Expo without native URL — broadcast without QR
+                broadcastPreviewUrl({
+                  nativeUrl: result.nativeUrl,
+                  webUrl: result.webUrl,
+                  qrDataUrl: null,
+                  terminalSessionId: sessionId,
+                  framework: result.framework,
                 });
               }
             }

@@ -1,46 +1,50 @@
 import { create } from 'zustand';
-import type { ExpoUrlInfo } from '@vibecoder/shared';
+import type { PreviewInfo, ProjectFramework } from '@vibecoder/shared';
 
 type ServerState = 'idle' | 'starting' | 'running' | 'stopped';
 
 interface PreviewState {
-  expoUrl: string | null;
+  nativeUrl: string | null;
   webUrl: string | null;
   qrDataUrl: string | null;
   terminalSessionId: string | null;
   viewMode: 'qr' | 'web';
   serverState: ServerState;
-  expoTerminalId: string | null;
+  previewTerminalId: string | null;
+  framework: ProjectFramework;
 }
 
 interface PreviewActions {
-  setExpoInfo: (info: ExpoUrlInfo) => void;
+  setPreviewInfo: (info: PreviewInfo) => void;
   clearPreview: () => void;
   setViewMode: (mode: 'qr' | 'web') => void;
   setServerState: (state: ServerState) => void;
-  setExpoTerminalId: (id: string | null) => void;
+  setPreviewTerminalId: (id: string | null) => void;
+  setFramework: (fw: ProjectFramework) => void;
 }
 
 export const usePreviewStore = create<PreviewState & PreviewActions>((set) => ({
-  expoUrl: null,
+  nativeUrl: null,
   webUrl: null,
   qrDataUrl: null,
   terminalSessionId: null,
   viewMode: 'web',
   serverState: 'idle',
-  expoTerminalId: null,
+  previewTerminalId: null,
+  framework: 'expo',
 
-  setExpoInfo: (info) =>
+  setPreviewInfo: (info) =>
     set({
-      expoUrl: info.expoUrl,
+      nativeUrl: info.nativeUrl,
       webUrl: info.webUrl,
       qrDataUrl: info.qrDataUrl,
       terminalSessionId: info.terminalSessionId,
+      framework: info.framework,
     }),
 
   clearPreview: () =>
     set({
-      expoUrl: null,
+      nativeUrl: null,
       webUrl: null,
       qrDataUrl: null,
       terminalSessionId: null,
@@ -48,5 +52,6 @@ export const usePreviewStore = create<PreviewState & PreviewActions>((set) => ({
 
   setViewMode: (mode) => set({ viewMode: mode }),
   setServerState: (state) => set({ serverState: state }),
-  setExpoTerminalId: (id) => set({ expoTerminalId: id }),
+  setPreviewTerminalId: (id) => set({ previewTerminalId: id }),
+  setFramework: (fw) => set({ framework: fw }),
 }));
