@@ -44,7 +44,7 @@ function renderTab(tab: Tab) {
       return <ConsolePanel />;
     default:
       return (
-        <div style={{ padding: 24, color: 'var(--text-muted)' }}>
+        <div style={{ padding: 'var(--space-6)', color: 'var(--text-muted)' }}>
           {tab.type} tab — coming soon
         </div>
       );

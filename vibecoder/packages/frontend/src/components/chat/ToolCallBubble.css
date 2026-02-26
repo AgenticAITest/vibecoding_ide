@@ -1,16 +1,32 @@
 .tool-bubble {
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   font-size: 13px;
 }
 
+/* ── 3px left color stripe per status ── */
+
+.tool-bubble--running {
+  border-left: 3px solid var(--warning);
+}
+
+.tool-bubble--done {
+  border-left: 3px solid var(--success);
+}
+
+.tool-bubble--error {
+  border-left: 3px solid var(--error);
+}
+
+/* ── Header ── */
+
 .tool-bubble__header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   width: 100%;
-  padding: 6px 10px;
+  padding: var(--space-2) var(--space-3);
   background: var(--bg-tertiary);
   border: none;
   color: var(--text-primary);
@@ -18,14 +34,19 @@
   font-family: var(--font-sans);
   font-size: 13px;
   text-align: left;
+  transition: background var(--transition-fast);
 }
 
 .tool-bubble__header:hover {
   background: var(--border-color);
 }
 
+/* ── Status icon ── */
+
 .tool-bubble__status {
-  font-size: 11px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .tool-bubble__status--running {
@@ -40,22 +61,41 @@
   color: var(--error);
 }
 
+.tool-bubble__icon--spin {
+  animation: toolSpin 0.8s linear infinite;
+}
+
+@keyframes toolSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Tool name ── */
+
 .tool-bubble__name {
   font-family: var(--font-mono);
   font-weight: 500;
   flex: 1;
 }
 
-.tool-bubble__chevron {
+/* ── Chevron ── */
+
+.tool-bubble__chevron-icon {
   color: var(--text-muted);
-  font-size: 11px;
+  flex-shrink: 0;
+  transition: transform var(--transition-base);
 }
 
+.tool-bubble__chevron-icon--expanded {
+  transform: rotate(180deg);
+}
+
+/* ── Details ── */
+
 .tool-bubble__details {
-  padding: 8px 10px;
+  padding: var(--space-2) var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
   background: var(--bg-secondary);
 }
 
@@ -65,7 +105,7 @@
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
 }
 
 .tool-bubble__code {

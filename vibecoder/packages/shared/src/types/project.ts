@@ -27,7 +27,10 @@ export interface DesignFile {
   contentBase64: string;
 }
 
+export type ProjectFramework = 'expo' | 'flutter';
+
 export interface ScaffoldConfig {
+  framework?: ProjectFramework;
   projectName: string;
   apiSpec: ParsedApi | null;
   apiSpecRaw: string | null;
@@ -50,4 +53,4 @@ export interface ProjectInfo {
 
 // --- Wizard types ---
 
-export type WizardStep = 'name' | 'api' | 'design' | 'html-import' | 'review';
+export type WizardStep = 'name' | 'framework' | 'api' | 'design' | 'html-import' | 'review';

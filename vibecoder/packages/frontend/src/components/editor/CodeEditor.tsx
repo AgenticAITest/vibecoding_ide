@@ -179,6 +179,7 @@ export function CodeEditor({ filePath, onDirtyChange }: CodeEditorProps) {
         onMount={handleEditorMount}
         onChange={handleEditorChange}
         options={{
+          fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
           minimap: { enabled: false },
           wordWrap: 'on',
           tabSize: 2,

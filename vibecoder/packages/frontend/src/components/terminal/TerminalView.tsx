@@ -46,7 +46,7 @@ export function TerminalView({ sessionId }: TerminalViewProps) {
     container.innerHTML = '';
 
     const term = new Terminal({
-      fontFamily: "'Cascadia Code', 'Fira Code', 'Consolas', monospace",
+      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
       fontSize: 14,
       lineHeight: 1.2,
       cursorBlink: true,

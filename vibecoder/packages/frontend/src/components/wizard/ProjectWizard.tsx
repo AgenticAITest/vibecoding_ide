@@ -5,28 +5,44 @@ import { useFileStore } from '../../store/fileStore';
 import { useUIStore } from '../../store/uiStore';
 import { projectApi, fileApi } from '../../lib/api';
 import { StepName } from './StepName';
+import { StepFramework } from './StepFramework';
 import { StepApi } from './StepApi';
 import { StepDesign } from './StepDesign';
 import { StepHtmlImport } from './StepHtmlImport';
 import { StepReview } from './StepReview';
-import type { WizardStep } from '@vibecoder/shared';
+import type { WizardStep, ProjectFramework } from '@vibecoder/shared';
 import './ProjectWizard.css';
 
-const STEPS: { key: WizardStep; label: string }[] = [
+interface StepDef {
+  key: WizardStep;
+  label: string;
+}
+
+const EXPO_STEPS: StepDef[] = [
   { key: 'name', label: 'Name' },
+  { key: 'framework', label: 'Framework' },
   { key: 'api', label: 'API' },
   { key: 'design', label: 'Design' },
   { key: 'html-import', label: 'HTML/CSS' },
   { key: 'review', label: 'Review' },
 ];
 
-function stepIndex(step: WizardStep): number {
-  return STEPS.findIndex((s) => s.key === step);
+const FLUTTER_STEPS: StepDef[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'framework', label: 'Framework' },
+  { key: 'api', label: 'API' },
+  { key: 'design', label: 'Design' },
+  { key: 'review', label: 'Review' },
+];
+
+function getSteps(fw: ProjectFramework): StepDef[] {
+  return fw === 'flutter' ? FLUTTER_STEPS : EXPO_STEPS;
 }
 
 export function ProjectWizard() {
   const step = useWizardStore((s) => s.step);
   const setStep = useWizardStore((s) => s.setStep);
+  const framework = useWizardStore((s) => s.framework);
   const projectName = useWizardStore((s) => s.projectName);
   const apiSpec = useWizardStore((s) => s.apiSpec);
   const apiSpecRaw = useWizardStore((s) => s.apiSpecRaw);
@@ -44,7 +60,8 @@ export function ProjectWizard() {
   const setProjectDir = useFileStore((s) => s.setProjectDir);
   const showFileTree = useUIStore((s) => s.showFileTree);
 
-  const currentIdx = stepIndex(step);
+  const steps = getSteps(framework);
+  const currentIdx = steps.findIndex((s) => s.key === step);
 
   const canGoNext = useCallback(() => {
     if (step === 'name') return projectName.trim().length >= 3;
@@ -52,14 +69,14 @@ export function ProjectWizard() {
   }, [step, projectName]);
 
   const handleNext = () => {
-    if (currentIdx < STEPS.length - 1) {
-      setStep(STEPS[currentIdx + 1].key);
+    if (currentIdx < steps.length - 1) {
+      setStep(steps[currentIdx + 1].key);
     }
   };
 
   const handleBack = () => {
     if (currentIdx > 0) {
-      setStep(STEPS[currentIdx - 1].key);
+      setStep(steps[currentIdx - 1].key);
     }
   };
 
@@ -69,6 +86,7 @@ export function ProjectWizard() {
     try {
       await projectApi.create({
         projectName: projectName.trim(),
+        framework,
         apiSpec,
         apiSpecRaw,
         logoBase64,
@@ -107,7 +125,7 @@ export function ProjectWizard() {
     <div className="wizard">
       {/* Step indicator */}
       <div className="wizard__steps">
-        {STEPS.map((s, i) => (
+        {steps.map((s, i) => (
           <span key={s.key}>
             {i > 0 && <span className="wizard__step-separator" />}
             <span
@@ -131,6 +149,7 @@ export function ProjectWizard() {
       {/* Step content */}
       <div className="wizard__content">
         {step === 'name' && <StepName />}
+        {step === 'framework' && <StepFramework />}
         {step === 'api' && <StepApi />}
         {step === 'design' && <StepDesign />}
         {step === 'html-import' && <StepHtmlImport />}

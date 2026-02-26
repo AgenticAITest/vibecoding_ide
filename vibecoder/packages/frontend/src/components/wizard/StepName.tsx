@@ -32,8 +32,8 @@ export function StepName() {
     <div>
       <h2 className="wizard__section-title">Name your project</h2>
       <p className="wizard__section-desc">
-        Choose a name for your new Expo (React Native) project. This will be used as
-        the folder name and the app display name.
+        Choose a name for your new mobile app project. This will be used as the
+        folder name and the app display name.
       </p>
 
       <label className="wizard__label">Project Name</label>

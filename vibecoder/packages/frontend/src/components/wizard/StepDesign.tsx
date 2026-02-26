@@ -57,7 +57,7 @@ export function StepDesign() {
             <span className="wizard__preset-swatch">
               <span className="wizard__preset-dot" style={{ background: p.primary }} />
               <span className="wizard__preset-dot" style={{ background: p.accent }} />
-              <span className="wizard__preset-dot" style={{ background: p.background, border: '1px solid #313244' }} />
+              <span className="wizard__preset-dot" style={{ background: p.background, border: '1px solid var(--border-color)' }} />
             </span>
             <span className="wizard__preset-name">{p.name}</span>
           </button>
@@ -114,7 +114,7 @@ export function StepDesign() {
       </div>
 
       {/* Logo */}
-      <label className="wizard__label" style={{ marginTop: 12 }}>App Logo (optional)</label>
+      <label className="wizard__label" style={{ marginTop: 'var(--space-3)' }}>App Logo (optional)</label>
       <div className="wizard__logo-area">
         <div className="wizard__logo-preview">
           {logoBase64 ? (
@@ -137,7 +137,7 @@ export function StepDesign() {
           {logoBase64 && (
             <button
               className="wizard__btn wizard__btn--secondary"
-              style={{ marginLeft: 8 }}
+              style={{ marginLeft: 'var(--space-2)' }}
               onClick={handleRemoveLogo}
             >
               Remove

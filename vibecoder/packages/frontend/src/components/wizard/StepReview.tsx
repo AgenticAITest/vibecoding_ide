@@ -2,6 +2,7 @@ import { useWizardStore } from '../../store/wizardStore';
 
 export function StepReview() {
   const projectName = useWizardStore((s) => s.projectName);
+  const framework = useWizardStore((s) => s.framework);
   const apiSpec = useWizardStore((s) => s.apiSpec);
   const colors = useWizardStore((s) => s.colors);
   const logoFileName = useWizardStore((s) => s.logoFileName);
@@ -19,6 +20,13 @@ export function StepReview() {
       <div className="wizard__review-section">
         <div className="wizard__review-label">Project Name</div>
         <div className="wizard__review-value">{projectName}</div>
+      </div>
+
+      <div className="wizard__review-section">
+        <div className="wizard__review-label">Framework</div>
+        <div className="wizard__review-value">
+          {framework === 'flutter' ? 'Flutter (Dart)' : 'Expo (React Native)'}
+        </div>
       </div>
 
       <div className="wizard__review-section">
@@ -43,7 +51,7 @@ export function StepReview() {
               Accent: {colors.accent}
             </div>
             <div className="wizard__review-color">
-              <span className="wizard__review-swatch" style={{ background: colors.background, border: '1px solid #313244' }} />
+              <span className="wizard__review-swatch" style={{ background: colors.background, border: '1px solid var(--border-color)' }} />
               Background: {colors.background}
             </div>
           </div>
@@ -67,13 +75,13 @@ export function StepReview() {
       </div>
 
       {isCreating && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
           <span className="wizard__spinner" />
           <span style={{ fontSize: 14 }}>Creating project...</span>
         </div>
       )}
 
-      {error && <p className="wizard__error" style={{ marginTop: 16 }}>{error}</p>}
+      {error && <p className="wizard__error" style={{ marginTop: 'var(--space-4)' }}>{error}</p>}
     </div>
   );
 }

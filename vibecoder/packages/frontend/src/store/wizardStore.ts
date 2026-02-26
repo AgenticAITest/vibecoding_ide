@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import type { WizardStep, ParsedApi, DesignFile } from '@vibecoder/shared';
+import type { WizardStep, ParsedApi, DesignFile, ProjectFramework } from '@vibecoder/shared';
 
 interface WizardState {
   step: WizardStep;
+  framework: ProjectFramework;
   projectName: string;
   apiSpec: ParsedApi | null;
   apiSpecRaw: string | null;
@@ -20,6 +21,7 @@ interface WizardState {
 
 interface WizardActions {
   setStep: (step: WizardStep) => void;
+  setFramework: (framework: ProjectFramework) => void;
   setProjectName: (name: string) => void;
   setApiSpec: (spec: ParsedApi | null, raw: string | null) => void;
   setLogo: (base64: string | null, fileName: string | null) => void;
@@ -34,6 +36,7 @@ interface WizardActions {
 
 const INITIAL_STATE: WizardState = {
   step: 'name',
+  framework: 'expo',
   projectName: '',
   apiSpec: null,
   apiSpecRaw: null,
@@ -53,6 +56,7 @@ export const useWizardStore = create<WizardState & WizardActions>((set) => ({
   ...INITIAL_STATE,
 
   setStep: (step) => set({ step, error: null }),
+  setFramework: (framework) => set({ framework }),
   setProjectName: (projectName) => set({ projectName }),
   setApiSpec: (apiSpec, apiSpecRaw) => set({ apiSpec, apiSpecRaw }),
   setLogo: (logoBase64, logoFileName) => set({ logoBase64, logoFileName }),
