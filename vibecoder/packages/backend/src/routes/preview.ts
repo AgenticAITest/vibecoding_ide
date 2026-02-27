@@ -81,13 +81,26 @@ const INTERCEPTOR_SCRIPT = `<script data-vibecoder-interceptor>
 </script>`;
 
 function injectInterceptor(html: string, port: number): string {
-  // <base> rewrites root-relative asset URLs (e.g. /node_modules/...) so they
-  // load from Metro directly instead of hitting the Vite dev server.
-  // The interceptor script is already in the HTML, so console/network capture works.
-  const baseTag = `<base href="http://localhost:${port}/" />`;
+  // Detect Flutter HTML: main.dart.js is the Dart compiled output,
+  // flutter.js / flutter_bootstrap.js are the Flutter engine loaders.
+  const isFlutterHtml =
+    html.includes('main.dart.js') ||
+    html.includes('flutter.js') ||
+    html.includes('flutter_bootstrap.js');
+
+  // For Flutter: use proxy-relative base so all asset/script requests go through
+  // our proxy, avoiding CORS issues (Flutter's dev server has no CORS headers).
+  // For Expo: use direct base pointing to Metro, which supports CORS.
+  const baseTag = isFlutterHtml
+    ? `<base href="/api/preview-proxy/${port}/" />`
+    : `<base href="http://localhost:${port}/" />`;
+
+  // Remove any existing <base> tag from the HTML so ours takes sole effect.
+  // Flutter's HTML template includes <base href="/"> which would conflict.
+  let processed = html.replace(/<base\s+href="[^"]*"\s*\/?>/i, '');
 
   // Patch history.replaceState/pushState so that URLs resolved against <base>
-  // (which point to Metro's origin) are rewritten to the document's actual origin.
+  // (which point to Metro's origin or the proxy path) are rewritten to the document's actual origin.
   // Without this, expo-router's replaceState calls fail with a cross-origin error.
   const historyPatch = `<script data-vibecoder-history-patch>
 (function() {
@@ -105,7 +118,7 @@ function injectInterceptor(html: string, port: number): string {
   }
   history.replaceState = function(s, t, u) { return origReplace(s, t, fixUrl(u)); };
   history.pushState = function(s, t, u) { return origPush(s, t, fixUrl(u)); };
-  // Rewrite the proxy path to "/" so expo-router sees the app root, not "/api/preview-proxy/"
+  // Rewrite the proxy path to "/" so expo-router sees the app root, not "/api/preview-proxy/..."
   // Must use absolute URL — relative "/" would resolve against <base> to Metro's origin.
   if (location.pathname.indexOf('/api/preview-proxy') === 0) {
     origReplace(null, '', location.origin + '/');
@@ -116,13 +129,13 @@ function injectInterceptor(html: string, port: number): string {
   const injection = baseTag + historyPatch + INTERCEPTOR_SCRIPT;
 
   // Inject after <head> so <base> takes effect before other tags
-  const headOpen = html.indexOf('<head>');
+  const headOpen = processed.indexOf('<head>');
   if (headOpen !== -1) {
     const pos = headOpen + '<head>'.length;
-    return html.slice(0, pos) + injection + html.slice(pos);
+    return processed.slice(0, pos) + injection + processed.slice(pos);
   }
   // Fallback: inject at the start
-  return injection + html;
+  return injection + processed;
 }
 
 export const previewRouter = Router();
@@ -133,12 +146,13 @@ export const previewRouter = Router();
  * can be embedded in an iframe.
  */
 previewRouter.use('/', (req, res) => {
-  const targetPort = parseInt(req.query._port as string) || 8081;
-
-  // Strip our proxy prefix and the _port query param to get the real path
-  let targetPath = req.originalUrl.replace(/^\/api\/preview-proxy\/?/, '/');
-  // Remove _port param
-  targetPath = targetPath.replace(/([?&])_port=\d+&?/, '$1').replace(/[?&]$/, '');
+  // Extract port from path: /api/preview-proxy/PORT/rest-of-path
+  // Falls back to query param for backwards compatibility, then default 8081
+  const portMatch = req.originalUrl.match(/^\/api\/preview-proxy\/(\d+)(\/.*)?/);
+  const targetPort = portMatch
+    ? parseInt(portMatch[1])
+    : parseInt(req.query._port as string) || 8081;
+  let targetPath = portMatch ? (portMatch[2] || '/') : '/';
   if (!targetPath.startsWith('/')) targetPath = '/' + targetPath;
 
   const fwdHeaders: Record<string, string | string[] | undefined> = { ...req.headers };
@@ -149,7 +163,10 @@ previewRouter.use('/', (req, res) => {
   delete fwdHeaders['accept-encoding'];
 
   const options: http.RequestOptions = {
-    hostname: '127.0.0.1',
+    // Use 'localhost' instead of '127.0.0.1' so Node resolves via OS DNS.
+    // Flutter binds to [::1] (IPv6); '127.0.0.1' is IPv4-only and would
+    // get ECONNREFUSED. 'localhost' tries IPv6 first on modern Windows.
+    hostname: 'localhost',
     port: targetPort,
     path: targetPath,
     method: req.method,

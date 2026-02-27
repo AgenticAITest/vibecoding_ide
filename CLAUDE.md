@@ -259,7 +259,7 @@ projects/<name>/
 |-------|-----------|---------|
 | Frontend | React + TypeScript + Vite | 19.2 / 5.9 / 7.3 |
 | Code Editor | `@monaco-editor/react` | 4.7 |
-| Terminal | `@xterm/xterm` + `@xterm/addon-fit` + `node-pty` | 6.0 / 1.1 |
+| Terminal | `@xterm/xterm` + `@xterm/addon-fit` + `@xterm/addon-web-links` + `node-pty` | 6.0 / 0.11 / 0.12 / 1.1 |
 | AI Chat | `@anthropic-ai/claude-agent-sdk` (Max subscription, NOT direct API) | 0.2.42 |
 | Panels | `allotment` (extracted from VS Code) | 1.0.7 |
 | Backend | Express + `ws` | 5.1 / 8.18 |

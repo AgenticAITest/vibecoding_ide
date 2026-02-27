@@ -37,12 +37,16 @@ export function handleTerminalMessage(ws: WebSocket, msg: WSMessage): void {
 
   switch (payload.type) {
     case 'terminal:create': {
-      const { sessionId, cols, rows } = payload;
+      const { sessionId, cols, rows, initialCommand } = payload;
+      if (initialCommand) {
+        console.log(`[PTY] terminal:create for ${sessionId} with initialCommand: ${initialCommand.trimEnd().slice(0, 80)}`);
+      }
       const sessions = getOrCreateSessionSet(ws);
       sessions.add(sessionId);
 
       // Track already-detected URLs to avoid re-broadcasting
       const detectedUrls = new Set<string>();
+      let initialCommandSent = false;
 
       createPtySession(
         sessionId,
@@ -55,6 +59,16 @@ export function handleTerminalMessage(ws: WebSocket, msg: WSMessage): void {
             sessionId,
             data,
           });
+
+          // Write initial command once the shell has started producing output
+          if (initialCommand && !initialCommandSent) {
+            initialCommandSent = true;
+            console.log(`[PTY] Shell output detected for ${sessionId}, scheduling initial command`);
+            setTimeout(() => {
+              console.log(`[PTY] Writing initial command to ${sessionId}: ${initialCommand.trimEnd().slice(0, 80)}`);
+              writeToPty(sessionId, initialCommand);
+            }, 500);
+          }
 
           // Scan for Expo/Flutter dev server URLs in terminal output
           const result = scanForDevServerUrl(sessionId, data);
@@ -144,6 +158,13 @@ export function cleanupTerminalConnection(ws: WebSocket): void {
   const sessions = connectionSessions.get(ws);
   if (sessions && sessions.size > 0) {
     console.log(`[Terminal] Cleaning up ${sessions.size} session(s) for disconnected client`);
+    // Clear preview cache and scanner buffers for each session.
+    // destroyPtySession disposes the onExit listener before killing,
+    // so broadcastServerStopped would never fire from the exit callback.
+    for (const id of sessions) {
+      clearSessionBuffer(id);
+      broadcastServerStopped(id);
+    }
     destroyManySessions(sessions);
   }
   connectionSessions.delete(ws);

@@ -3,6 +3,7 @@ import { AppShell } from './components/layout/AppShell';
 import { useUIStore } from './store/uiStore';
 import { useFileWatcher } from './hooks/useFileWatcher';
 import { usePreviewWatcher } from './hooks/usePreviewWatcher';
+import { useHotReload } from './hooks/useHotReload';
 import './App.css';
 
 function App() {
@@ -11,8 +12,11 @@ function App() {
   // Start file tree loading and WS file change listening
   useFileWatcher();
 
-  // Listen for Expo URL detection from terminal output
+  // Listen for Expo/Flutter URL detection from terminal output
   usePreviewWatcher();
+
+  // Auto hot-reload Flutter dev server on .dart file changes
+  useHotReload();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

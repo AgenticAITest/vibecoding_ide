@@ -5,6 +5,7 @@ export interface TerminalCreateMsg {
   sessionId: string;
   cols: number;
   rows: number;
+  initialCommand?: string;
 }
 
 export interface TerminalInputMsg {

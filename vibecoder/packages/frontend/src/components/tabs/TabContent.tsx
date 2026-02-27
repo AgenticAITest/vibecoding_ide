@@ -31,7 +31,7 @@ function renderTab(tab: Tab) {
     case 'editor':
       return isImageFile(tab.path!) ? <ImageViewer filePath={tab.path!} /> : <CodeEditor filePath={tab.path!} />;
     case 'terminal':
-      return <TerminalView sessionId={tab.id} />;
+      return <TerminalView sessionId={tab.id} initialCommand={tab.initialCommand} />;
     case 'wizard':
       return <ProjectWizard />;
     case 'preview':

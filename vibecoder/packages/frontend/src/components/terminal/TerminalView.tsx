@@ -4,14 +4,23 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { useWebSocket } from '../../hooks/useWebSocket';
+import { useTabStore } from '../../store/tabStore';
 import type { WSMessage } from '@vibecoder/shared';
 import './TerminalView.css';
 
+/**
+ * Track which PTY sessions have been created on the backend.
+ * Prevents React StrictMode double-mount from sending duplicate
+ * terminal:create messages (which would restart the process).
+ */
+const createdSessions = new Set<string>();
+
 interface TerminalViewProps {
   sessionId: string;
+  initialCommand?: string;
 }
 
-export function TerminalView({ sessionId }: TerminalViewProps) {
+export function TerminalView({ sessionId, initialCommand }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -27,6 +36,7 @@ export function TerminalView({ sessionId }: TerminalViewProps) {
           break;
         case 'terminal:exit':
           termRef.current?.write(`\r\n\x1b[90m[Process exited with code ${payload.exitCode}]\x1b[0m\r\n`);
+          createdSessions.delete(sessionId);
           break;
         case 'terminal:error':
           termRef.current?.write(`\r\n\x1b[31m[Error: ${payload.message}]\x1b[0m\r\n`);
@@ -85,19 +95,34 @@ export function TerminalView({ sessionId }: TerminalViewProps) {
     termRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    // Initial fit (deferred to let layout settle)
+    // Initial fit (deferred to let layout settle).
+    // Use refs (not closure vars) so StrictMode's second rAF uses
+    // the live Terminal/FitAddon instead of the disposed first mount's.
     requestAnimationFrame(() => {
-      // Guard: terminal may have been disposed by StrictMode cleanup
-      if (!termRef.current) return;
+      const currentTerm = termRef.current;
+      const currentFit = fitAddonRef.current;
+      if (!currentTerm || !currentFit) return;
 
-      fitAddon.fit();
+      // Only fit if the container is visible (has non-zero dimensions).
+      // Hidden tabs (display:none) would produce tiny cols/rows (e.g. 8x4).
+      // In that case, keep xterm defaults (80x24) for a usable PTY.
+      if (container.offsetWidth > 0 && container.offsetHeight > 0) {
+        currentFit.fit();
+      }
 
-      send('terminal:create', {
-        type: 'terminal:create',
-        sessionId,
-        cols: term.cols,
-        rows: term.rows,
-      });
+      // Only create the PTY session if we haven't already.
+      // StrictMode re-mounts the component, but the PTY from the first
+      // mount is still alive — don't restart the process.
+      if (!createdSessions.has(sessionId)) {
+        createdSessions.add(sessionId);
+        send('terminal:create', {
+          type: 'terminal:create',
+          sessionId,
+          cols: currentTerm.cols,
+          rows: currentTerm.rows,
+          ...(initialCommand ? { initialCommand } : {}),
+        });
+      }
     });
 
     // Forward user input to backend
@@ -109,10 +134,13 @@ export function TerminalView({ sessionId }: TerminalViewProps) {
       });
     });
 
-    // Resize observer for panel resizing
+    // Resize observer for panel resizing.
+    // Guard: skip fit when container is hidden (display:none → 0×0).
+    // Without this, switching away from the terminal tab would resize it
+    // to ~0 columns, garbling all subsequent output.
     const resizeObserver = new ResizeObserver(() => {
       requestAnimationFrame(() => {
-        if (fitAddonRef.current && termRef.current) {
+        if (fitAddonRef.current && termRef.current && container.offsetWidth > 0 && container.offsetHeight > 0) {
           fitAddonRef.current.fit();
           send('terminal:resize', {
             type: 'terminal:resize',
@@ -129,10 +157,18 @@ export function TerminalView({ sessionId }: TerminalViewProps) {
       resizeObserver.disconnect();
       dataDisposable.dispose();
 
-      send('terminal:close', {
-        type: 'terminal:close',
-        sessionId,
-      });
+      // Only destroy the backend PTY if the tab was actually closed
+      // (removed from the tab store). During StrictMode double-mount
+      // or HMR, the tab still exists — keep the PTY alive so long-running
+      // processes like Flutter compilation aren't killed.
+      const tabStillExists = useTabStore.getState().tabs.some((t) => t.id === sessionId);
+      if (!tabStillExists) {
+        send('terminal:close', {
+          type: 'terminal:close',
+          sessionId,
+        });
+        createdSessions.delete(sessionId);
+      }
 
       term.dispose();
       termRef.current = null;

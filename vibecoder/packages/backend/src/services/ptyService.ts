@@ -1,4 +1,5 @@
 import * as pty from 'node-pty';
+import { execSync } from 'child_process';
 import { getProjectDir } from './fileSystem.js';
 
 interface PtySession {
@@ -21,6 +22,45 @@ function getShellArgs(): string[] {
     return ['-NoLogo'];
   }
   return [];
+}
+
+/**
+ * Build a clean Windows-format PATH for PTY sessions.
+ * When running under Git Bash, process.env.PATH uses Unix-style paths
+ * (/c/flutter/bin) that PowerShell can't resolve. Read the actual
+ * User + System PATH from the registry so newly installed tools
+ * (like Flutter) are available without restarting the IDE.
+ */
+let cachedPtyEnv: Record<string, string> | null = null;
+
+function getPtyEnv(): Record<string, string> {
+  if (cachedPtyEnv) return cachedPtyEnv;
+
+  const env = { ...process.env } as Record<string, string>;
+
+  if (process.platform === 'win32') {
+    try {
+      const winPath = execSync(
+        'powershell.exe -NoProfile -NoLogo -Command "[Environment]::GetEnvironmentVariable(\'Path\',\'Machine\') + \';\' + [Environment]::GetEnvironmentVariable(\'Path\',\'User\')"',
+        { encoding: 'utf-8', timeout: 5000 },
+      ).trim();
+      if (winPath) {
+        env.Path = winPath;
+        // Also set PATH for consistency
+        env.PATH = winPath;
+      }
+    } catch (err) {
+      console.warn('[PTY] Failed to read Windows PATH from registry, using process.env:', err);
+    }
+  }
+
+  cachedPtyEnv = env;
+  return env;
+}
+
+/** Force re-read of PATH on next PTY spawn (e.g. after installing a new SDK) */
+export function invalidatePtyEnvCache(): void {
+  cachedPtyEnv = null;
 }
 
 export function createPtySession(
@@ -46,7 +86,7 @@ export function createPtySession(
     cols,
     rows,
     cwd,
-    env: process.env as Record<string, string>,
+    env: getPtyEnv(),
   });
 
   const onDataDispose = proc.onData((data) => {

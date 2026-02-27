@@ -76,36 +76,14 @@ export function PreviewPanel() {
   // Direct dev server URL — used for display only.
   const devServerUrl = devServerPort ? `http://localhost:${devServerPort}` : null;
   // Proxied URL — routes through backend so we can inject the console interceptor.
-  const proxyUrl = devServerPort ? `/api/preview-proxy/?_port=${devServerPort}` : null;
+  const proxyUrl = devServerPort ? `/api/preview-proxy/${devServerPort}/` : null;
   const displayUrl = nativeUrl || webUrl || '';
 
-  // --- Terminal channel: listen for terminal:created and terminal:exit ---
+  // --- Terminal channel: listen for terminal:exit ---
   const terminalHandler = useCallback(
     (msg: WSMessage) => {
       const payload = msg.payload as { type: string; sessionId: string; exitCode?: number };
       if (payload.sessionId !== PREVIEW_SESSION_ID) return;
-
-      if (payload.type === 'terminal:created') {
-        // PTY is ready — send the appropriate start command
-        const isWindows = navigator.platform.startsWith('Win');
-        let command: string;
-
-        if (isFlutter) {
-          command = isWindows
-            ? 'flutter run -d web-server --web-hostname=localhost --web-port=8080\r'
-            : 'flutter run -d web-server --web-hostname=localhost --web-port=8080\n';
-        } else {
-          command = isWindows
-            ? "$env:BROWSER='none'; npx expo start --web\r"
-            : 'BROWSER=none npx expo start --web\n';
-        }
-
-        sendTerminal('terminal:input', {
-          type: 'terminal:input',
-          sessionId: PREVIEW_SESSION_ID,
-          data: command,
-        });
-      }
 
       if (payload.type === 'terminal:exit') {
         setServerState('stopped');
@@ -113,10 +91,22 @@ export function PreviewPanel() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isFlutter],
+    [],
   );
 
   const { send: sendTerminal } = useWebSocket('terminal', terminalHandler);
+
+  // Build the start command for the preview server
+  const startCommand = useMemo(() => {
+    const isWindows = navigator.platform.startsWith('Win');
+    const nl = isWindows ? '\r' : '\n';
+    if (isFlutter) {
+      return `flutter run -d web-server --web-hostname=localhost --web-port=8080${nl}`;
+    }
+    return isWindows
+      ? `$env:BROWSER='none'; npx expo start --web${nl}`
+      : `BROWSER=none npx expo start --web${nl}`;
+  }, [isFlutter]);
 
   // Health-check dev server via the proxy before loading the iframe.
   useEffect(() => {
@@ -126,10 +116,11 @@ export function PreviewPanel() {
     let cancelled = false;
     const checkServer = async () => {
       try {
-        const res = await fetch(`/api/preview-proxy/?_port=${devServerPort}`, {
-          method: 'HEAD',
-        });
-        if (!cancelled && res.ok) {
+        // Use GET, not HEAD — Flutter's web server returns 404 for HEAD.
+        // Check for any non-502 status: 502 means proxy can't connect,
+        // anything else means the dev server is responding.
+        const res = await fetch(`/api/preview-proxy/${devServerPort}/`);
+        if (!cancelled && res.status !== 502) {
           setServerReady(true);
         }
       } catch {
@@ -153,10 +144,8 @@ export function PreviewPanel() {
     let cancelled = false;
     const probeDefault = async () => {
       try {
-        const res = await fetch(`/api/preview-proxy/?_port=${defaultPort}`, {
-          method: 'HEAD',
-        });
-        if (!cancelled && res.ok) {
+        const res = await fetch(`/api/preview-proxy/${defaultPort}/`);
+        if (!cancelled && res.status !== 502) {
           // Dev server is already running — populate the store
           setPreviewInfo({
             nativeUrl: null,
@@ -204,19 +193,20 @@ export function PreviewPanel() {
     // Register terminal session in terminal store
     useTerminalStore.getState().addSession(PREVIEW_SESSION_ID, 0);
 
-    // Create terminal tab (not focused — stays on preview tab)
+    // Create terminal tab with initialCommand (not focused — stays on preview tab)
     const currentActive = useTabStore.getState().activeTabId;
     useTabStore.getState().openTab({
       id: PREVIEW_SESSION_ID,
       type: 'terminal',
       label: isFlutter ? 'Flutter Server' : 'Expo Server',
       closable: true,
+      initialCommand: startCommand,
     });
     // openTab focuses the new tab — restore focus to preview
     useTabStore.getState().setActiveTab(currentActive);
 
     setPreviewTerminalId(PREVIEW_SESSION_ID);
-  }, [previewTerminalId, setServerState, setViewMode, setPreviewTerminalId, isFlutter]);
+  }, [previewTerminalId, setServerState, setViewMode, setPreviewTerminalId, isFlutter, startCommand]);
 
   const handleCopyUrl = () => {
     const urlToCopy = viewMode === 'web' ? (devServerUrl || displayUrl) : displayUrl;
@@ -347,6 +337,42 @@ export function PreviewPanel() {
           </div>
 
           <div className="preview__actions">
+            {isFlutter && serverState === 'running' && previewTerminalId && (
+              <>
+                <button
+                  className="preview__action-btn"
+                  onClick={() =>
+                    sendTerminal('terminal:input', {
+                      type: 'terminal:input',
+                      sessionId: previewTerminalId,
+                      data: 'r',
+                    })
+                  }
+                  title="Hot Reload (r)"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f9e2af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="13,2 3,14 12,14 11,22 21,10 12,10" />
+                  </svg>
+                </button>
+                <button
+                  className="preview__action-btn"
+                  onClick={() =>
+                    sendTerminal('terminal:input', {
+                      type: 'terminal:input',
+                      sessionId: previewTerminalId,
+                      data: 'R',
+                    })
+                  }
+                  title="Hot Restart (R)"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fab387" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="1,4 1,10 7,10" />
+                    <polyline points="23,20 23,14 17,14" />
+                    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
+                  </svg>
+                </button>
+              </>
+            )}
             <button className="preview__action-btn" onClick={handleCopyUrl} title={copied ? 'Copied!' : 'Copy URL'}>
               {copied ? (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a6e3a1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -599,15 +599,3 @@
   font-size: 12px;
 }
 
-.wizard__fw-card-badge {
-  position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
-  padding: 2px var(--space-3);
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  background: var(--bg-accent, #313244);
-  color: var(--text-muted, #6c7086);
-  pointer-events: none;
-}

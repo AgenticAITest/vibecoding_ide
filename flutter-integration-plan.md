@@ -154,22 +154,23 @@ Three tools, three vendors, three billing relationships.
 
 # Phase Roadmap
 
-## Phase A: Local Preview (Achievable — parallels Expo setup) ← **STARTED**
+## Phase A: Local Preview (Achievable — parallels Expo setup) ← **MOSTLY COMPLETE**
 
 1. **Scaffolder:** Generate a Flutter project (use `flutter create` or Very Good CLI / Mason templates)
-2. **Dev Server:** Spawn `flutter run -d web-server --web-port=8082` as a PTY subprocess
+2. **Dev Server:** Spawn `flutter run -d web-server --web-hostname=localhost --web-port=8080` as a PTY subprocess
 3. **Preview Panel:** Embed Flutter web output in existing iframe/device-frame preview (high-fidelity!)
 4. **Hot Reload:** Send `r` to stdin on file save
 5. **File Watching:** Existing chokidar watcher detects changes, triggers stdin `r`
 
 **Sub-steps completed:**
 - Project Wizard: framework selection UI (Expo vs Flutter) ✅
+- Dev server URL scanner: `devServerScanner.ts` scans for Flutter `is being served at` pattern ✅
+- Preview panel: detects framework from file tree, uses correct dev server command and UI labels ✅
+- PTY service: Flutter dev server spawned via same terminal channel (no changes needed) ✅
+- QR code: conditionally Expo-only; Flutter shows web view only ✅
 
 **Sub-steps remaining:**
 - Backend scaffolder: Flutter project templates (`flutter create` wrapper or Mason)
-- PTY service: Flutter dev server subprocess management
-- Expo scanner equivalent: scan Flutter stdout for web server URL
-- Preview panel: route to Flutter dev server when framework is Flutter
 - Hot reload integration: send `r` to Flutter stdin on file changes
 
 ## Phase B: Cloud Build (Requires external service integration)
@@ -276,3 +277,67 @@ The wizard previously had 5 static steps: Name → API → Design → HTML/CSS �
 6. Go back, select Flutter: Step indicator shows 5 steps, "HTML/CSS" disappears
 7. Navigate to Review: Framework row shows "Expo (React Native)" or "Flutter (Dart)"
 8. Create project with Expo: Works exactly as before (backward compat)
+
+---
+
+# Phase A Implementation: Framework-Agnostic Preview System
+
+**Status: COMPLETE** ✅
+
+## Context
+The preview system was fully hardcoded for Expo — clicking "Start Preview" always ran `npx expo start --web` and scanned for Metro URLs. This refactors the entire preview pipeline to detect the active project's framework and use the correct dev server command, URL patterns, QR behavior, and UI labels.
+
+## Framework Detection
+Detects from the file tree already loaded in `fileStore` — if `pubspec.yaml` exists at root, it's Flutter; otherwise Expo. Zero backend changes needed for detection.
+
+## Files Modified (10 files changed, 1 deleted, 1 created)
+
+### 1. Shared types — `packages/shared/src/types/preview.ts`
+- Renamed `ExpoUrlInfo` → `PreviewInfo` (kept deprecated alias)
+- Renamed field `expoUrl` → `nativeUrl`
+- Added field `framework: ProjectFramework`
+
+### 2. Backend service — `packages/backend/src/services/devServerScanner.ts` (replaces `expo.ts`)
+- Renamed `scanForExpoUrl()` → `scanForDevServerUrl()`
+- Renamed `ScanResult.expoUrl` → `.nativeUrl`, added `.framework` field
+- Added Flutter regex: `FLUTTER_SERVED_RE = /is being served at\s+(http:\/\/[\w.-]+:\d+)/`
+- Flutter patterns checked first (more specific), then falls through to Expo patterns
+- Console logs: `[Expo]` → `[DevServer]`
+
+### 3. Backend WS — `packages/backend/src/ws/previewChannel.ts`
+- Renamed `latestExpoUrl` → `latestPreviewInfo`
+- Renamed `broadcastExpoUrl()` → `broadcastPreviewUrl()`
+- Renamed `getLatestExpoUrl()` → `getLatestPreviewInfo()`
+
+### 4. Backend WS — `packages/backend/src/ws/terminalChannel.ts`
+- Updated imports to `devServerScanner.js` / `broadcastPreviewUrl`
+- QR generation now conditional: Expo only (Flutter skips QR, broadcasts without it)
+
+### 5. Backend WS — `packages/backend/src/ws/index.ts`
+- Updated import to `getLatestPreviewInfo()`
+
+### 6. Backend routes — `packages/backend/src/routes/preview.ts`
+- Error text: "Metro dev server" → "dev server", "Waiting for Metro" → "Waiting for dev server"
+
+### 7. Frontend store — `packages/frontend/src/store/previewStore.ts`
+- Renamed `expoUrl` → `nativeUrl`, `expoTerminalId` → `previewTerminalId`
+- Renamed `setExpoInfo()` → `setPreviewInfo()`, `setExpoTerminalId()` → `setPreviewTerminalId()`
+- Added `framework` field and `setFramework` action
+
+### 8. Frontend hook — `packages/frontend/src/hooks/usePreviewWatcher.ts`
+- Updated type imports and store action calls
+
+### 9. Frontend component — `packages/frontend/src/components/preview/PreviewPanel.tsx`
+- Detects framework from file tree (`pubspec.yaml` → Flutter)
+- Dynamic start command: Expo → `npx expo start --web`, Flutter → `flutter run -d web-server --web-hostname=localhost --web-port=8080`
+- Dynamic terminal tab label: "Expo Server" vs "Flutter Server"
+- Dynamic UI text: "Starting Metro..." vs "Starting Flutter dev server..."
+- QR/Web toggle hidden for Flutter (web-only preview)
+- Fallback port probe: Expo → 8081, Flutter → 8080
+
+## Verification
+1. `cd vibecoder && npm run build` — all 3 packages compile without errors ✅
+2. Existing Expo projects: Start Preview works exactly as before
+3. Flutter projects: Start Preview runs `flutter run -d web-server`, detects URL, shows web preview
+4. QR toggle only shown for Expo projects
+5. Flutter preview shows correct labels ("Flutter Server", "Starting Flutter dev server...")

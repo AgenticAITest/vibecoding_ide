@@ -8,7 +8,6 @@ interface FrameworkOption {
   subtitle: string;
   accent: string;
   features: string[];
-  comingSoon?: boolean;
 }
 
 const FRAMEWORKS: FrameworkOption[] = [
@@ -61,9 +60,6 @@ export function StepFramework() {
             style={{ '--fw-accent': fw.accent } as React.CSSProperties}
             onClick={() => setFramework(fw.id)}
           >
-            {fw.comingSoon && (
-              <span className="wizard__fw-card-badge">Coming soon</span>
-            )}
             <div className="wizard__fw-card-header">
               <span className="wizard__fw-card-icon">{fw.icon}</span>
               <div>

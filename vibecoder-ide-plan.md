@@ -286,13 +286,17 @@ Backend wraps `simple-git`. Minimal UI:
 
 No diff viewer, no merge UI — delegate complex git to AI chat.
 
-## Mobile Preview (Expo)
+## Mobile Preview (Expo + Flutter)
 
-- Terminal stdout is scanned for `exp://` URLs and Metro ready messages
-- Backend generates QR code via `qrcode` npm package
-- `ExpoQRCode` component shows scannable QR in a preview tab
-- Web preview: iframe to `localhost:8081` for `expo start --web`
-- User scans QR from phone → Expo Go opens the app (no environment switch needed)
+- Terminal stdout is scanned for dev server URLs (Expo `exp://` / Metro URLs, Flutter `is being served at` pattern)
+- `devServerScanner.ts` detects the framework automatically from URL patterns
+- QR code generation is Expo-only (Flutter has no phone preview equivalent)
+- Expo: `npx expo start --web` → Metro on port 8081
+- Flutter: `flutter run -d web-server --web-hostname=localhost --web-port=8080` → web server on port 8080
+- PreviewPanel detects framework from file tree (`pubspec.yaml` → Flutter, else Expo)
+- QR/Web toggle hidden for Flutter; Flutter always shows web view
+- Dynamic UI labels: "Expo Server" / "Flutter Server", "Starting Metro..." / "Starting Flutter dev server..."
+- All preview URLs proxied through backend for iframe embedding + console interceptor injection
 
 ## Keyboard Shortcuts
 
@@ -348,6 +352,8 @@ No diff viewer, no merge UI — delegate complex git to AI chat.
 
 ### Phase 6: Polish + Provider Abstraction — IN PROGRESS
 - [x] Mobile device frame fix — PreviewPanel phone frame scales correctly using sizer wrapper pattern (fixed 375×812 device, `position: absolute` inside a sizer div with explicit scaled dimensions, `transform-origin: top left`)
+- [x] Flutter framework selection UI in project wizard (Expo vs Flutter cards, conditional step flows)
+- [x] Framework-agnostic preview system — preview pipeline detects Expo vs Flutter and uses correct dev server command, URL patterns, QR behavior, and UI labels
 - [ ] Error boundaries, WS reconnection, keyboard shortcuts
 - [ ] OpenRouter and Gemini CLI provider stubs
 - [ ] Settings panel, session history

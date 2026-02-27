@@ -6,4 +6,5 @@ export interface Tab {
   label: string;
   path?: string;
   closable: boolean;
+  initialCommand?: string;
 }

@@ -1,8 +1,18 @@
 import { WebSocket } from 'ws';
 import path from 'path';
+import { readFile } from 'fs/promises';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { WSMessage, AIStreamEvent } from '@vibecoder/shared';
 import { getProjectDir } from '../services/fileSystem.js';
+
+async function readProjectClaudeMd(): Promise<string> {
+  try {
+    const claudeMdPath = path.join(getProjectDir(), 'CLAUDE.md');
+    return await readFile(claudeMdPath, 'utf-8');
+  } catch {
+    return '';
+  }
+}
 
 interface ActiveQuery {
   abortController: AbortController;
@@ -48,6 +58,7 @@ async function handleSend(ws: WebSocket, payload: { message: string; sessionId?:
 
   try {
     console.log('[AI] Starting query...');
+    const claudeMdContent = await readProjectClaudeMd();
     const q = query({
       prompt,
       options: {
@@ -57,6 +68,14 @@ async function handleSend(ws: WebSocket, payload: { message: string; sessionId?:
         allowDangerouslySkipPermissions: true,
         abortController,
         env: { CLAUDECODE: undefined },
+        settingSources: [],
+        ...(claudeMdContent ? {
+          systemPrompt: {
+            type: 'preset' as const,
+            preset: 'claude_code' as const,
+            append: claudeMdContent,
+          },
+        } : {}),
         stderr: (data: string) => console.error('[AI stderr]', data),
         ...(payload.sessionId ? { resume: payload.sessionId } : {}),
       },
