@@ -14,10 +14,11 @@ import type { ScaffoldConfig } from '@vibecoder/shared';
 export const projectsRouter = Router();
 
 // GET /api/projects — list all projects + active directory
-projectsRouter.get('/', async (_req, res) => {
+projectsRouter.get('/', async (req, res) => {
   try {
-    const projects = await listProjects();
-    const activeDir = getProjectDir();
+    const userId = req.user!.userId;
+    const projects = await listProjects(userId);
+    const activeDir = getProjectDir(userId);
     res.json({ projects, activeDir });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -28,13 +29,14 @@ projectsRouter.get('/', async (_req, res) => {
 // POST /api/projects/validate-name — check name validity + uniqueness
 projectsRouter.post('/validate-name', async (req, res) => {
   try {
+    const userId = req.user!.userId;
     const { name } = req.body as { name: string };
     const validation = validateProjectName(name);
     if (!validation.valid) {
       res.json({ valid: false, error: validation.error });
       return;
     }
-    const exists = await projectExists(name);
+    const exists = await projectExists(userId, name);
     if (exists) {
       res.json({ valid: false, error: 'A project with this name already exists' });
       return;
@@ -79,6 +81,7 @@ projectsRouter.post('/fetch-api-url', async (req, res) => {
 // POST /api/projects — create project (runs scaffolder)
 projectsRouter.post('/', async (req, res) => {
   try {
+    const userId = req.user!.userId;
     const config = req.body as ScaffoldConfig;
 
     // Validate name
@@ -88,10 +91,10 @@ projectsRouter.post('/', async (req, res) => {
       return;
     }
 
-    const project = await createProject(config);
+    const project = await createProject(userId, config);
 
     // Auto-activate the new project
-    await activateProject(config.projectName);
+    await activateProject(userId, config.projectName);
 
     res.json({ project });
   } catch (err: unknown) {
@@ -103,8 +106,9 @@ projectsRouter.post('/', async (req, res) => {
 // DELETE /api/projects/:name — delete project
 projectsRouter.delete('/:name', async (req, res) => {
   try {
+    const userId = req.user!.userId;
     const { name } = req.params;
-    await deleteProject(name);
+    await deleteProject(userId, name);
     res.json({ ok: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -115,8 +119,9 @@ projectsRouter.delete('/:name', async (req, res) => {
 // POST /api/projects/:name/activate — set active project
 projectsRouter.post('/:name/activate', async (req, res) => {
   try {
+    const userId = req.user!.userId;
     const { name } = req.params;
-    const projectPath = await activateProject(name);
+    const projectPath = await activateProject(userId, name);
     res.json({ ok: true, path: projectPath });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';

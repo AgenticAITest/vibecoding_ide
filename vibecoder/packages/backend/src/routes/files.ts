@@ -11,6 +11,7 @@ import {
   createFile,
   deleteFile,
   renameFile,
+  resolveSafe,
   stopWatcher,
   startWatcher,
 } from '../services/fileSystem.js';
@@ -22,8 +23,9 @@ const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 const storage = multer.diskStorage({
-  destination: async (_req, _file, cb) => {
-    const uploadDir = path.join(getProjectDir(), 'uploads');
+  destination: async (req, _file, cb) => {
+    const userId = req.user!.userId;
+    const uploadDir = path.join(getProjectDir(userId), 'uploads');
     await fs.mkdir(uploadDir, { recursive: true });
     cb(null, uploadDir);
   },
@@ -68,9 +70,9 @@ filesRouter.get('/raw', async (req, res) => {
     res.status(400).json({ error: 'Missing path query parameter' });
     return;
   }
-  const projectDir = getProjectDir();
+  const projectDir = getProjectDir(req.user!.userId);
   const absolute = path.resolve(projectDir, filePath);
-  if (!absolute.startsWith(projectDir)) {
+  if (!path.normalize(absolute).startsWith(path.normalize(projectDir))) {
     res.status(403).json({ error: 'Path traversal detected' });
     return;
   }
@@ -83,10 +85,11 @@ filesRouter.get('/raw', async (req, res) => {
 });
 
 // GET /api/files/tree
-filesRouter.get('/tree', async (_req, res) => {
+filesRouter.get('/tree', async (req, res) => {
   try {
-    const tree = await getFileTree();
-    res.json({ tree, projectDir: getProjectDir() });
+    const userId = req.user!.userId;
+    const tree = await getFileTree(undefined, userId);
+    res.json({ tree, projectDir: getProjectDir(userId) });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -100,7 +103,8 @@ filesRouter.get('/read', async (req, res) => {
     return;
   }
   try {
-    const content = await readFile(filePath);
+    const projectDir = getProjectDir(req.user!.userId);
+    const content = await readFile(projectDir, filePath);
     res.json({ content, path: filePath });
   } catch (err: any) {
     if (err.message === 'Path traversal detected') {
@@ -119,7 +123,8 @@ filesRouter.post('/write', async (req, res) => {
     return;
   }
   try {
-    await writeFile(filePath, content);
+    const projectDir = getProjectDir(req.user!.userId);
+    await writeFile(projectDir, filePath, content);
     res.json({ ok: true });
   } catch (err: any) {
     if (err.message === 'Path traversal detected') {
@@ -138,7 +143,8 @@ filesRouter.post('/create', async (req, res) => {
     return;
   }
   try {
-    await createFile(filePath, type, content);
+    const projectDir = getProjectDir(req.user!.userId);
+    await createFile(projectDir, filePath, type, content);
     res.json({ ok: true });
   } catch (err: any) {
     if (err.message === 'Path traversal detected') {
@@ -157,7 +163,8 @@ filesRouter.delete('/delete', async (req, res) => {
     return;
   }
   try {
-    await deleteFile(filePath);
+    const projectDir = getProjectDir(req.user!.userId);
+    await deleteFile(projectDir, filePath);
     res.json({ ok: true });
   } catch (err: any) {
     if (err.message === 'Path traversal detected') {
@@ -176,7 +183,8 @@ filesRouter.post('/rename', async (req, res) => {
     return;
   }
   try {
-    await renameFile(oldPath, newPath);
+    const projectDir = getProjectDir(req.user!.userId);
+    await renameFile(projectDir, oldPath, newPath);
     res.json({ ok: true });
   } catch (err: any) {
     if (err.message === 'Path traversal detected') {
@@ -188,8 +196,8 @@ filesRouter.post('/rename', async (req, res) => {
 });
 
 // GET /api/files/project-dir
-filesRouter.get('/project-dir', (_req, res) => {
-  res.json({ dir: getProjectDir() });
+filesRouter.get('/project-dir', (req, res) => {
+  res.json({ dir: getProjectDir(req.user!.userId) });
 });
 
 // POST /api/files/project-dir { dir }
@@ -200,10 +208,12 @@ filesRouter.post('/project-dir', (req, res) => {
     return;
   }
   try {
-    stopWatcher();
-    setProjectDir(dir);
-    startWatcher();
-    res.json({ ok: true, dir: getProjectDir() });
+    const userId = req.user!.userId;
+    const oldDir = getProjectDir(userId);
+    stopWatcher(oldDir);
+    setProjectDir(userId, dir);
+    startWatcher(getProjectDir(userId));
+    res.json({ ok: true, dir: getProjectDir(userId) });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

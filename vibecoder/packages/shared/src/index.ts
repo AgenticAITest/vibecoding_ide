@@ -7,3 +7,4 @@ export * from './types/project.js';
 export * from './types/git.js';
 export * from './types/preview.js';
 export * from './types/console.js';
+export * from './types/user.js';

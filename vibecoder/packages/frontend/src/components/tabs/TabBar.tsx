@@ -1,5 +1,6 @@
 import { useTabStore } from '../../store/tabStore';
 import { useUIStore } from '../../store/uiStore';
+import { useAuthStore } from '../../store/authStore';
 import { useTerminal } from '../../hooks/useTerminal';
 import './TabBar.css';
 
@@ -11,6 +12,7 @@ export function TabBar() {
   const openTab = useTabStore((s) => s.openTab);
   const toggleFileTree = useUIStore((s) => s.toggleFileTree);
   const fileTreeVisible = useUIStore((s) => s.fileTreeVisible);
+  const user = useAuthStore((s) => s.user);
   const { openNewTerminal } = useTerminal();
 
   const openPreview = () => {
@@ -23,6 +25,10 @@ export function TabBar() {
 
   const openGit = () => {
     openTab({ id: 'git', type: 'git', label: 'Git', closable: true });
+  };
+
+  const openAdmin = () => {
+    openTab({ id: 'admin', type: 'admin', label: 'Admin', closable: true });
   };
 
   return (
@@ -93,6 +99,18 @@ export function TabBar() {
             <path d="M11 7a6 6 0 0 1-6 6" />
           </svg>
         </button>
+        {user?.role === 'admin' && (
+          <button
+            className={`tab-bar__icon-btn ${activeTabId === 'admin' ? 'tab-bar__icon-btn--active' : ''}`}
+            onClick={openAdmin}
+            title="Admin Panel"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="8" cy="5" r="3" />
+              <path d="M2 14c0-3.3 2.7-5 6-5s6 1.7 6 5" />
+            </svg>
+          </button>
+        )}
         <button
           className={`tab-bar__icon-btn ${fileTreeVisible ? 'tab-bar__icon-btn--active' : ''}`}
           onClick={toggleFileTree}

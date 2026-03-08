@@ -25,3 +25,9 @@ export interface GitBranch {
   name: string;
   current: boolean;
 }
+
+export interface GitRemote {
+  name: string;
+  fetchUrl: string;
+  pushUrl: string;
+}

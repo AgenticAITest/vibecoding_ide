@@ -1,6 +1,5 @@
 import * as pty from 'node-pty';
 import { execSync } from 'child_process';
-import { getProjectDir } from './fileSystem.js';
 
 interface PtySession {
   process: pty.IPty;
@@ -69,6 +68,7 @@ export function createPtySession(
   rows: number,
   onData: (data: string) => void,
   onExit: (exitCode: number) => void,
+  cwd?: string,
 ): void {
   if (sessions.has(id)) {
     console.warn(`[PTY] Session ${id} already exists, destroying old one`);
@@ -77,7 +77,6 @@ export function createPtySession(
 
   const shell = getShell();
   const args = getShellArgs();
-  const cwd = getProjectDir();
 
   console.log(`[PTY] Spawning ${shell} for session ${id} in ${cwd} (${cols}x${rows})`);
 

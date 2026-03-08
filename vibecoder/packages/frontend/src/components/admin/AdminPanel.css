@@ -1,0 +1,242 @@
+.admin {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+  overflow-y: auto;
+}
+
+.admin__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border, #313244);
+  flex-shrink: 0;
+}
+
+.admin__title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Alerts */
+.admin__alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.admin__alert--error {
+  background: rgba(243, 139, 168, 0.1);
+  border-bottom: 1px solid rgba(243, 139, 168, 0.2);
+  color: #f38ba8;
+}
+
+.admin__alert--success {
+  background: rgba(166, 227, 161, 0.1);
+  border-bottom: 1px solid rgba(166, 227, 161, 0.2);
+  color: #a6e3a1;
+}
+
+.admin__alert-dismiss {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.admin__alert-dismiss:hover {
+  opacity: 1;
+}
+
+/* Form */
+.admin__form {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border, #313244);
+  background: var(--bg-secondary, #181825);
+}
+
+.admin__form-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin__input {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #313244);
+  background: var(--bg-primary, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+  font-size: 13px;
+  outline: none;
+  flex: 1;
+  min-width: 0;
+}
+
+.admin__input--small {
+  padding: 4px 8px;
+  font-size: 12px;
+  flex: unset;
+  width: 140px;
+}
+
+.admin__input:focus {
+  border-color: var(--accent, #cba6f7);
+}
+
+.admin__input::placeholder {
+  color: var(--text-muted, #6c7086);
+}
+
+.admin__select {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #313244);
+  background: var(--bg-primary, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+.admin__select:focus {
+  border-color: var(--accent, #cba6f7);
+}
+
+/* Buttons */
+.admin__btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border, #313244);
+  background: transparent;
+  color: var(--text-primary, #cdd6f4);
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.admin__btn:hover {
+  background: var(--bg-accent, #313244);
+}
+
+.admin__btn--primary {
+  background: var(--accent, #cba6f7);
+  color: var(--bg-primary, #1e1e2e);
+  border-color: var(--accent, #cba6f7);
+}
+
+.admin__btn--primary:hover {
+  opacity: 0.9;
+}
+
+.admin__btn--primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.admin__btn--danger {
+  color: #f38ba8;
+  border-color: rgba(243, 139, 168, 0.3);
+}
+
+.admin__btn--danger:hover {
+  background: rgba(243, 139, 168, 0.1);
+}
+
+.admin__btn--small {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* Table */
+.admin__loading {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted, #6c7086);
+}
+
+.admin__table-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px 20px;
+}
+
+.admin__table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.admin__table th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, #6c7086);
+  border-bottom: 1px solid var(--border, #313244);
+}
+
+.admin__table td {
+  padding: 10px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(49, 50, 68, 0.5);
+  vertical-align: middle;
+}
+
+.admin__table tr:hover td {
+  background: rgba(49, 50, 68, 0.3);
+}
+
+.admin__username {
+  font-weight: 500;
+}
+
+.admin__role {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.admin__role--admin {
+  background: rgba(203, 166, 247, 0.15);
+  color: #cba6f7;
+}
+
+.admin__role--user {
+  background: rgba(137, 180, 250, 0.15);
+  color: #89b4fa;
+}
+
+.admin__date {
+  color: var(--text-muted, #6c7086);
+  font-size: 12px;
+}
+
+.admin__actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.admin__reset-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}

@@ -1,0 +1,3 @@
+{$VIBECODER_DOMAIN:localhost} {
+	reverse_proxy vibecoder:3001
+}

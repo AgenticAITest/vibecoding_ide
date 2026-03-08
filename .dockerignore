@@ -1,0 +1,24 @@
+# Dependencies (will be installed fresh in container)
+vibecoder/node_modules/
+vibecoder/packages/*/node_modules/
+
+# Build output (will be built fresh in container)
+vibecoder/packages/*/dist/
+
+# Dev / IDE files
+.git/
+.claude/
+.env
+*.log
+.DS_Store
+Thumbs.db
+
+# User projects (mounted as volume, not baked into image)
+projects/
+
+# Docs & images not needed in container
+*.md
+!vibecoder/packages/backend/feature-packs/*.md
+*.png
+*.jpeg
+*.jpg

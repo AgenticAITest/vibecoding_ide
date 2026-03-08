@@ -1,0 +1,1 @@
+{"root":["./src/index.ts","./src/types/ai.ts","./src/types/console.ts","./src/types/file.ts","./src/types/git.ts","./src/types/preview.ts","./src/types/project.ts","./src/types/tab.ts","./src/types/terminal.ts","./src/types/user.ts","./src/types/ws.ts"],"version":"5.9.3"}

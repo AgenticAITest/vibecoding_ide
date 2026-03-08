@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import type { WSMessage } from '@vibecoder/shared';
+import { useAuthStore } from '../store/authStore';
 
 type MessageHandler = (msg: WSMessage) => void;
 
@@ -11,13 +12,35 @@ let reconnectDelay = 1000;
 
 function getWsUrl() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//localhost:3001`;
+  const token = useAuthStore.getState().token;
+  const base = `${protocol}//${window.location.host}/ws`;
+  return token ? `${base}?token=${encodeURIComponent(token)}` : base;
+}
+
+export function reconnectWs() {
+  if (ws) {
+    ws.onclose = null; // prevent auto-reconnect of old connection
+    ws.close();
+    ws = null;
+  }
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  reconnectDelay = 1000;
+  // Only connect if we have a token
+  if (useAuthStore.getState().token) {
+    connect();
+  }
 }
 
 function connect() {
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
     return;
   }
+
+  // Don't connect without auth token
+  if (!useAuthStore.getState().token) return;
 
   ws = new WebSocket(getWsUrl());
 
@@ -67,8 +90,7 @@ function sendMessage(channel: WSMessage['channel'], type: string, payload: unkno
   ws.send(JSON.stringify(msg));
 }
 
-// Initialize connection on first import
-connect();
+// Connection is initialized after login via reconnectWs()
 
 export function useWebSocket(channel: string, handler: MessageHandler) {
   const handlerRef = useRef(handler);

@@ -1,7 +1,22 @@
-import type { FileNode, ProjectInfo, ParsedApi, ScaffoldConfig, GitStatus, GitLogEntry, GitBranch, AIImageAttachment } from '@vibecoder/shared';
+import type { FileNode, ProjectInfo, ParsedApi, ScaffoldConfig, GitStatus, GitLogEntry, GitBranch, GitRemote, AIImageAttachment, User } from '@vibecoder/shared';
+import { useAuthStore } from '../store/authStore';
+
+function getAuthHeaders(): Record<string, string> {
+  const token = useAuthStore.getState().token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, options);
+  const headers = new Headers(options?.headers);
+  const auth = getAuthHeaders();
+  for (const [k, v] of Object.entries(auth)) {
+    headers.set(k, v);
+  }
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    useAuthStore.getState().logout();
+    throw new Error('Session expired');
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(body.error || res.statusText);
@@ -72,6 +87,7 @@ export const uploadApi = {
     formData.append('image', file);
     const res = await fetch('/api/files/upload', {
       method: 'POST',
+      headers: getAuthHeaders(),
       body: formData,
     });
     if (!res.ok) {
@@ -127,4 +143,34 @@ export const gitApi = {
 
   diff: (path?: string) =>
     request<{ diff: string }>(`/api/git/diff${path ? `?path=${encodeURIComponent(path)}` : ''}`),
+
+  remotes: () =>
+    request<{ remotes: GitRemote[]; credentialsSet: boolean }>('/api/git/remotes'),
+
+  addRemote: (name: string, url: string) =>
+    request<{ ok: boolean }>('/api/git/remote', json({ name, url })),
+
+  removeRemote: (name: string) =>
+    request<{ ok: boolean }>(`/api/git/remote/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+
+  setCredentials: (token: string, host?: string) =>
+    request<{ ok: boolean }>('/api/git/credentials', json({ token, host })),
+};
+
+export const adminApi = {
+  listUsers: () =>
+    request<{ users: User[] }>('/api/auth/users'),
+
+  createUser: (username: string, password: string, role?: string) =>
+    request<{ user: User }>('/api/auth/users', json({ username, password, role })),
+
+  deleteUser: (id: string) =>
+    request<{ ok: boolean }>(`/api/auth/users/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  resetPassword: (id: string, password: string) =>
+    request<{ ok: boolean }>(`/api/auth/users/${encodeURIComponent(id)}/password`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    }),
 };

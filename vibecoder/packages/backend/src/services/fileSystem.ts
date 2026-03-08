@@ -3,22 +3,34 @@ import path from 'path';
 import { watch, type FSWatcher } from 'chokidar';
 import type { FileNode, FileChange, FileChangeType } from '@vibecoder/shared';
 
-// --- Project directory ---
+// --- Projects base directory ---
 
-// Default: projects/demo-app relative to the vibecoding_ide root
-// Override with VIBECODER_PROJECT_DIR env var
-const DEFAULT_PROJECTS_DIR = path.resolve(
-  import.meta.dirname, '..', '..', '..', '..', '..', 'projects', 'demo-app'
+// Base: vibecoding_ide/projects/
+const PROJECTS_BASE = path.resolve(
+  import.meta.dirname, '..', '..', '..', '..', '..', 'projects'
 );
 
-let projectDir = process.env.VIBECODER_PROJECT_DIR || DEFAULT_PROJECTS_DIR;
+// Per-user active project directories: userId → absolute path
+const userProjectDirs = new Map<string, string>();
 
-export function getProjectDir(): string {
-  return projectDir;
+export function getProjectsBase(): string {
+  return PROJECTS_BASE;
 }
 
-export function setProjectDir(dir: string): void {
-  projectDir = path.resolve(dir);
+export function getUserProjectsDir(userId: string): string {
+  return path.join(PROJECTS_BASE, userId);
+}
+
+export function getProjectDir(userId?: string): string {
+  if (!userId) {
+    // Fallback for backward compatibility during migration
+    return process.env.VIBECODER_PROJECT_DIR || path.join(PROJECTS_BASE, 'demo-app');
+  }
+  return userProjectDirs.get(userId) || path.join(PROJECTS_BASE, userId, 'demo-app');
+}
+
+export function setProjectDir(userId: string, dir: string): void {
+  userProjectDirs.set(userId, path.resolve(dir));
 }
 
 // --- Path security ---
@@ -32,7 +44,7 @@ function normalizePath(filePath: string): string {
   return filePath.split(path.sep).join('/');
 }
 
-function resolveSafe(relPath: string): string {
+export function resolveSafe(projectDir: string, relPath: string): string {
   const resolved = path.resolve(projectDir, relPath);
   const normalizedResolved = path.normalize(resolved);
   const normalizedProject = path.normalize(projectDir);
@@ -44,8 +56,8 @@ function resolveSafe(relPath: string): string {
 
 // --- File tree ---
 
-export async function getFileTree(dir?: string): Promise<FileNode[]> {
-  const root = dir || projectDir;
+export async function getFileTree(dir?: string, userId?: string): Promise<FileNode[]> {
+  const root = dir || getProjectDir(userId);
   return scanDir(root, root);
 }
 
@@ -87,19 +99,19 @@ async function scanDir(dirPath: string, rootPath: string): Promise<FileNode[]> {
 
 // --- File CRUD ---
 
-export async function readFile(relPath: string): Promise<string> {
-  const absPath = resolveSafe(relPath);
+export async function readFile(projectDir: string, relPath: string): Promise<string> {
+  const absPath = resolveSafe(projectDir, relPath);
   return fs.readFile(absPath, 'utf-8');
 }
 
-export async function writeFile(relPath: string, content: string): Promise<void> {
-  const absPath = resolveSafe(relPath);
+export async function writeFile(projectDir: string, relPath: string, content: string): Promise<void> {
+  const absPath = resolveSafe(projectDir, relPath);
   await fs.mkdir(path.dirname(absPath), { recursive: true });
   await fs.writeFile(absPath, content, 'utf-8');
 }
 
-export async function createFile(relPath: string, type: 'file' | 'directory', content?: string): Promise<void> {
-  const absPath = resolveSafe(relPath);
+export async function createFile(projectDir: string, relPath: string, type: 'file' | 'directory', content?: string): Promise<void> {
+  const absPath = resolveSafe(projectDir, relPath);
   if (type === 'directory') {
     await fs.mkdir(absPath, { recursive: true });
   } else {
@@ -108,50 +120,56 @@ export async function createFile(relPath: string, type: 'file' | 'directory', co
   }
 }
 
-export async function deleteFile(relPath: string): Promise<void> {
-  const absPath = resolveSafe(relPath);
+export async function deleteFile(projectDir: string, relPath: string): Promise<void> {
+  const absPath = resolveSafe(projectDir, relPath);
   await fs.rm(absPath, { recursive: true, force: true });
 }
 
-export async function renameFile(oldRelPath: string, newRelPath: string): Promise<void> {
-  const oldAbs = resolveSafe(oldRelPath);
-  const newAbs = resolveSafe(newRelPath);
+export async function renameFile(projectDir: string, oldRelPath: string, newRelPath: string): Promise<void> {
+  const oldAbs = resolveSafe(projectDir, oldRelPath);
+  const newAbs = resolveSafe(projectDir, newRelPath);
   await fs.mkdir(path.dirname(newAbs), { recursive: true });
   await fs.rename(oldAbs, newAbs);
 }
 
-// --- File watching ---
+// --- File watching (per project directory) ---
 
 type ChangeListener = (changes: FileChange[]) => void;
 
-let watcher: FSWatcher | null = null;
-const listeners: Set<ChangeListener> = new Set();
-let pendingChanges: FileChange[] = [];
-let batchTimer: ReturnType<typeof setTimeout> | null = null;
+interface WatcherState {
+  watcher: FSWatcher;
+  listeners: Set<ChangeListener>;
+  pendingChanges: FileChange[];
+  batchTimer: ReturnType<typeof setTimeout> | null;
+}
+
+const watchers = new Map<string, WatcherState>();
 
 const BATCH_DELAY = 150;
 
-function flushChanges() {
-  if (pendingChanges.length === 0) return;
-  const batch = pendingChanges;
-  pendingChanges = [];
-  batchTimer = null;
-  for (const listener of listeners) {
+function flushChanges(state: WatcherState) {
+  if (state.pendingChanges.length === 0) return;
+  const batch = state.pendingChanges;
+  state.pendingChanges = [];
+  state.batchTimer = null;
+  for (const listener of state.listeners) {
     listener(batch);
   }
 }
 
-function queueChange(type: FileChangeType, filePath: string) {
-  const relPath = normalizePath(path.relative(projectDir, filePath));
-  pendingChanges.push({ type, path: relPath });
-  if (batchTimer) clearTimeout(batchTimer);
-  batchTimer = setTimeout(flushChanges, BATCH_DELAY);
+function queueChange(dirPath: string, type: FileChangeType, filePath: string) {
+  const state = watchers.get(dirPath);
+  if (!state) return;
+  const relPath = normalizePath(path.relative(dirPath, filePath));
+  state.pendingChanges.push({ type, path: relPath });
+  if (state.batchTimer) clearTimeout(state.batchTimer);
+  state.batchTimer = setTimeout(() => flushChanges(state), BATCH_DELAY);
 }
 
-export function startWatcher(): void {
-  if (watcher) return;
+export function startWatcher(dirPath: string): void {
+  if (watchers.has(dirPath)) return;
 
-  watcher = watch(projectDir, {
+  const watcher = watch(dirPath, {
     ignored: [
       '**/node_modules/**',
       '**/.git/**',
@@ -166,28 +184,43 @@ export function startWatcher(): void {
     },
   });
 
-  watcher.on('add', (p) => queueChange('add', p));
-  watcher.on('change', (p) => queueChange('change', p));
-  watcher.on('unlink', (p) => queueChange('unlink', p));
-  watcher.on('addDir', (p) => queueChange('addDir', p));
-  watcher.on('unlinkDir', (p) => queueChange('unlinkDir', p));
+  const state: WatcherState = {
+    watcher,
+    listeners: new Set(),
+    pendingChanges: [],
+    batchTimer: null,
+  };
 
-  console.log(`File watcher started for: ${projectDir}`);
+  watcher.on('add', (p) => queueChange(dirPath, 'add', p));
+  watcher.on('change', (p) => queueChange(dirPath, 'change', p));
+  watcher.on('unlink', (p) => queueChange(dirPath, 'unlink', p));
+  watcher.on('addDir', (p) => queueChange(dirPath, 'addDir', p));
+  watcher.on('unlinkDir', (p) => queueChange(dirPath, 'unlinkDir', p));
+
+  watchers.set(dirPath, state);
+  console.log(`File watcher started for: ${dirPath}`);
 }
 
-export function stopWatcher(): void {
-  if (watcher) {
-    watcher.close();
-    watcher = null;
-  }
-  if (batchTimer) {
-    clearTimeout(batchTimer);
-    batchTimer = null;
-  }
-  pendingChanges = [];
+export function stopWatcher(dirPath: string): void {
+  const state = watchers.get(dirPath);
+  if (!state) return;
+  state.watcher.close();
+  if (state.batchTimer) clearTimeout(state.batchTimer);
+  watchers.delete(dirPath);
 }
 
-export function onFileChange(listener: ChangeListener): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+export function onFileChange(dirPath: string, listener: ChangeListener): () => void {
+  let state = watchers.get(dirPath);
+  if (!state) {
+    startWatcher(dirPath);
+    state = watchers.get(dirPath)!;
+  }
+  state.listeners.add(listener);
+  return () => {
+    state!.listeners.delete(listener);
+    // If no listeners remain, stop the watcher
+    if (state!.listeners.size === 0) {
+      stopWatcher(dirPath);
+    }
+  };
 }

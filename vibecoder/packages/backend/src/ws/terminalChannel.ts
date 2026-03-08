@@ -1,5 +1,7 @@
 import { WebSocket } from 'ws';
 import type { WSMessage, TerminalClientMessage, TerminalServerEvent } from '@vibecoder/shared';
+import { getProjectDir } from '../services/fileSystem.js';
+import { getWsUserId } from './wsAuth.js';
 import {
   createPtySession,
   writeToPty,
@@ -47,6 +49,9 @@ export function handleTerminalMessage(ws: WebSocket, msg: WSMessage): void {
       // Track already-detected URLs to avoid re-broadcasting
       const detectedUrls = new Set<string>();
       let initialCommandSent = false;
+
+      const userId = getWsUserId(ws);
+      const projectDir = getProjectDir(userId);
 
       createPtySession(
         sessionId,
@@ -114,7 +119,7 @@ export function handleTerminalMessage(ws: WebSocket, msg: WSMessage): void {
           }
         },
         // onExit — PTY process exited
-        (exitCode) => {
+        (exitCode: number) => {
           sessions.delete(sessionId);
           clearSessionBuffer(sessionId);
           broadcastServerStopped(sessionId);
@@ -124,6 +129,7 @@ export function handleTerminalMessage(ws: WebSocket, msg: WSMessage): void {
             exitCode,
           });
         },
+        projectDir,
       );
 
       sendTerminalEvent(ws, {

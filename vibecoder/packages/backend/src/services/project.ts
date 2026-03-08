@@ -3,22 +3,19 @@ import path from 'path';
 import type { ScaffoldConfig, ProjectInfo } from '@vibecoder/shared';
 import { scaffold } from './scaffolder.js';
 import { scaffoldFlutter } from './scaffolderFlutter.js';
-import { setProjectDir, stopWatcher, startWatcher } from './fileSystem.js';
+import { getUserProjectsDir, setProjectDir, stopWatcher, startWatcher, getProjectDir } from './fileSystem.js';
 
-// Projects root: vibecoding_ide/projects/
-const PROJECTS_ROOT = path.resolve(
-  import.meta.dirname, '..', '..', '..', '..', '..', 'projects'
-);
-
-async function ensureProjectsRoot(): Promise<void> {
-  await fs.mkdir(PROJECTS_ROOT, { recursive: true });
+async function ensureUserDir(userId: string): Promise<string> {
+  const userDir = getUserProjectsDir(userId);
+  await fs.mkdir(userDir, { recursive: true });
+  return userDir;
 }
 
-export async function listProjects(): Promise<ProjectInfo[]> {
-  await ensureProjectsRoot();
+export async function listProjects(userId: string): Promise<ProjectInfo[]> {
+  const userDir = await ensureUserDir(userId);
   let entries;
   try {
-    entries = await fs.readdir(PROJECTS_ROOT, { withFileTypes: true });
+    entries = await fs.readdir(userDir, { withFileTypes: true });
   } catch {
     return [];
   }
@@ -27,7 +24,7 @@ export async function listProjects(): Promise<ProjectInfo[]> {
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     if (entry.name.startsWith('.')) continue;
-    const projectPath = path.join(PROJECTS_ROOT, entry.name);
+    const projectPath = path.join(userDir, entry.name);
     let createdAt = new Date().toISOString();
     try {
       const stat = await fs.stat(projectPath);
@@ -57,21 +54,20 @@ export function validateProjectName(name: string): { valid: boolean; error?: str
   return { valid: true };
 }
 
-export async function projectExists(name: string): Promise<boolean> {
+export async function projectExists(userId: string, name: string): Promise<boolean> {
   try {
-    await fs.access(path.join(PROJECTS_ROOT, name));
+    await fs.access(path.join(getUserProjectsDir(userId), name));
     return true;
   } catch {
     return false;
   }
 }
 
-export async function createProject(config: ScaffoldConfig): Promise<ProjectInfo> {
-  await ensureProjectsRoot();
-  const projectPath = path.join(PROJECTS_ROOT, config.projectName);
+export async function createProject(userId: string, config: ScaffoldConfig): Promise<ProjectInfo> {
+  const userDir = await ensureUserDir(userId);
+  const projectPath = path.join(userDir, config.projectName);
 
-  // Ensure doesn't already exist
-  if (await projectExists(config.projectName)) {
+  if (await projectExists(userId, config.projectName)) {
     throw new Error(`Project "${config.projectName}" already exists`);
   }
 
@@ -88,26 +84,24 @@ export async function createProject(config: ScaffoldConfig): Promise<ProjectInfo
   };
 }
 
-export async function deleteProject(name: string): Promise<void> {
-  const projectPath = path.join(PROJECTS_ROOT, name);
+export async function deleteProject(userId: string, name: string): Promise<void> {
+  const projectPath = path.join(getUserProjectsDir(userId), name);
   await fs.rm(projectPath, { recursive: true, force: true });
 }
 
-export async function activateProject(name: string): Promise<string> {
-  const projectPath = path.join(PROJECTS_ROOT, name);
-  // Verify exists
+export async function activateProject(userId: string, name: string): Promise<string> {
+  const projectPath = path.join(getUserProjectsDir(userId), name);
   try {
     await fs.access(projectPath);
   } catch {
     throw new Error(`Project "${name}" not found`);
   }
 
-  stopWatcher();
-  setProjectDir(projectPath);
-  startWatcher();
-  return projectPath;
-}
+  // Stop old watcher for this user's previous project
+  const oldDir = getProjectDir(userId);
+  if (oldDir) stopWatcher(oldDir);
 
-export function getProjectsRoot(): string {
-  return PROJECTS_ROOT;
+  setProjectDir(userId, projectPath);
+  startWatcher(projectPath);
+  return projectPath;
 }

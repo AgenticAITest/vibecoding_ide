@@ -1,0 +1,128 @@
+.login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--bg-primary, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+}
+
+.login__card {
+  width: 100%;
+  max-width: 360px;
+  padding: 40px 32px;
+  border-radius: 12px;
+  border: 1px solid var(--border, #313244);
+  background: var(--bg-secondary, #181825);
+}
+
+.login__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.login__logo-img {
+  max-width: 200px;
+  max-height: 120px;
+  object-fit: contain;
+}
+
+.login__subtitle {
+  text-align: center;
+  color: var(--text-muted, #6c7086);
+  font-size: 14px;
+  margin: 0 0 24px;
+}
+
+.login__error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(243, 139, 168, 0.1);
+  border: 1px solid rgba(243, 139, 168, 0.2);
+  color: #f38ba8;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.login__error-dismiss {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: #f38ba8;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.7;
+}
+
+.login__error-dismiss:hover {
+  opacity: 1;
+}
+
+.login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.login__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.login__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary, #a6adc8);
+}
+
+.login__input {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #313244);
+  background: var(--bg-primary, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.login__input:focus {
+  border-color: var(--accent, #cba6f7);
+}
+
+.login__input::placeholder {
+  color: var(--text-muted, #6c7086);
+}
+
+.login__input:disabled {
+  opacity: 0.5;
+}
+
+.login__submit {
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent, #cba6f7);
+  color: var(--bg-primary, #1e1e2e);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  margin-top: 4px;
+}
+
+.login__submit:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.login__submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

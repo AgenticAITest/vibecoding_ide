@@ -39,3 +39,35 @@
 .status-bar__btn--active {
   color: var(--accent-primary);
 }
+
+.status-bar__user {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 var(--space-2);
+  border-left: 1px solid var(--border-color);
+  margin-left: var(--space-1);
+}
+
+.status-bar__role {
+  font-size: 10px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(203, 166, 247, 0.15);
+  color: #cba6f7;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.status-bar__btn--logout {
+  color: var(--text-muted, #6c7086);
+  border-left: 1px solid var(--border-color);
+  margin-left: var(--space-1);
+  padding-left: var(--space-2);
+}
+
+.status-bar__btn--logout:hover {
+  color: #f38ba8;
+  background: rgba(243, 139, 168, 0.1);
+}

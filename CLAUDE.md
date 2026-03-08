@@ -43,6 +43,7 @@ vibecoding_ide/                    ← repo root
 │   └── packages/
 │       ├── shared/   → @vibecoder/shared    — TypeScript types only (no build step, exports via src/index.ts)
 │       ├── backend/  → @vibecoder/backend   — Express 5 + ws + node-pty (port 3001)
+│       │   └── feature-packs/               — markdown feature pack templates (e.g., voice-login)
 │       └── frontend/ → @vibecoder/frontend  — React 19 + Vite 7 (port 5173)
 ├── projects/                      ← scaffolded user projects live here
 │   ├── demo-app/                  ← default project
@@ -63,7 +64,7 @@ REST (`/api/*`) handles file CRUD, project CRUD, and git operations. A **single 
 - **ai** — Bidirectional: client sends messages, server streams text deltas + tool calls
 - **terminal** — Bidirectional: client sends input/resize, server streams output
 - **files** — Server→client broadcast: file change notifications from chokidar watcher
-- **preview** — Server→client broadcast: Expo URL detection + server state
+- **preview** — Server→client broadcast: dev server URL detection + server state (Expo or Flutter)
 
 ### Frontend: 3-Column Layout with allotment
 
@@ -121,7 +122,7 @@ packages/frontend/src/
 │   ├── useAiChat.ts                 ← AI chat over WS: send, interrupt, streaming
 │   ├── useTerminal.ts               ← PTY session management over WS
 │   ├── useFileWatcher.ts            ← file change subscription → fileStore
-│   ├── usePreviewWatcher.ts         ← Expo URL + QR → previewStore
+│   ├── usePreviewWatcher.ts         ← dev server URL + QR → previewStore
 │   └── useConsoleListener.ts        ← iframe postMessage → consoleStore
 ├── store/
 │   ├── chatStore.ts                 ← messages, sessionId, streaming state, tool calls
@@ -129,7 +130,7 @@ packages/frontend/src/
 │   ├── fileStore.ts                 ← file tree, expanded dirs, project dir
 │   ├── uiStore.ts                   ← panel sizes, file tree visibility
 │   ├── terminalStore.ts             ← terminal sessions + counter
-│   ├── previewStore.ts              ← expoUrl, qrDataUrl, viewMode, serverState
+│   ├── previewStore.ts              ← nativeUrl, qrDataUrl, viewMode, serverState, framework
 │   ├── gitStore.ts                  ← status, log, branches, commit message, diff
 │   ├── consoleStore.ts              ← log entries (max 500), filter
 │   └── wizardStore.ts               ← wizard step, framework, project config
@@ -145,20 +146,21 @@ packages/backend/src/
 ├── ws/
 │   ├── index.ts                     ← WS dispatcher: routes messages by channel
 │   ├── aiChannel.ts                 ← Claude Agent SDK subprocess, streaming events
-│   ├── terminalChannel.ts           ← PTY management, Expo URL scanning
+│   ├── terminalChannel.ts           ← PTY management, dev server URL scanning
 │   ├── fileChannel.ts               ← file change broadcasts to all clients
-│   └── previewChannel.ts            ← Expo URL caching + broadcasting
+│   └── previewChannel.ts            ← dev server URL caching + broadcasting
 ├── routes/
 │   ├── files.ts                     ← /api/files/* — CRUD, tree, upload, raw serve
 │   ├── projects.ts                  ← /api/projects/* — list, create, delete, activate
 │   ├── git.ts                       ← /api/git/* — status, stage, commit, push, pull, branches, diff
-│   └── preview.ts                   ← /api/preview-proxy/* — Metro proxy with header/script injection
+│   └── preview.ts                   ← /api/preview-proxy/* — dev server proxy with header/script injection
 └── services/
     ├── fileSystem.ts                ← file CRUD, path traversal protection, chokidar watcher
     ├── project.ts                   ← project list/create/activate/delete
     ├── scaffolder.ts                ← generates full Expo project structure (~700 LOC)
+    ├── scaffolderFlutter.ts         ← generates Flutter project structure
     ├── ptyService.ts                ← node-pty wrapper, session management
-    ├── expo.ts                      ← ANSI stripping, Expo URL scanning, QR generation
+    ├── devServerScanner.ts          ← ANSI stripping, Expo/Flutter URL scanning, QR generation
     ├── apiParser.ts                 ← OpenAPI/Swagger JSON parser
     └── git.ts                       ← simple-git wrapper for all git operations
 ```
@@ -174,7 +176,7 @@ packages/shared/src/types/
 ├── ws.ts         ← WSMessage (channel + type + payload)
 ├── project.ts    ← ProjectFramework ('expo'|'flutter'), WizardStep, ScaffoldConfig, ParsedApi, ApiEndpoint
 ├── git.ts        ← GitStatus, GitFileChange, GitLogEntry, GitBranch
-├── preview.ts    ← ExpoUrlInfo, PreviewServerEvent
+├── preview.ts    ← PreviewInfo (was ExpoUrlInfo), PreviewServerEvent
 └── console.ts    ← ConsoleEntry, NetworkEntry
 ```
 
@@ -211,7 +213,7 @@ packages/shared/src/types/
 | POST | `/api/git/branch` | Create branch |
 | POST | `/api/git/checkout` | Switch branch |
 | GET | `/api/git/diff?path=` | Diff output |
-| * | `/api/preview-proxy/*` | Proxy to Metro dev server |
+| * | `/api/preview-proxy/*` | Proxy to dev server (Metro/Flutter) |
 
 ### Tab System
 
@@ -288,7 +290,8 @@ projects/<name>/
 - **AI session resume:** Capture `session_id` from the init message and pass as `options.resume: sessionId` for continuity.
 - **Path security:** All file operations go through `resolveSafe()` for path traversal protection.
 - **Terminal platform detection:** Windows uses `powershell.exe -NoLogo`, Unix uses `$SHELL` or `/bin/bash`.
-- **Expo URL scanning:** Strips ANSI codes (CSI + OSC + two-char sequences), 8KB rolling buffer per terminal session.
+- **Dev server URL scanning:** `devServerScanner.ts` strips ANSI codes (CSI + OSC + two-char sequences), 8KB rolling buffer per terminal session. Scans for both Expo Metro URLs and Flutter `is being served at` patterns.
+- **Framework detection:** Preview panel detects framework from file tree — `pubspec.yaml` at root → Flutter, otherwise Expo. Determines dev server command, URL patterns, QR behavior, and UI labels.
 - **Project directory:** Defaults to `vibecoding_ide/projects/demo-app`, overrideable via `VIBECODER_PROJECT_DIR` env var.
 - **Vite proxy:** Frontend `vite.config.ts` proxies `/api` and `/ws` to `http://localhost:3001`.
 
@@ -301,6 +304,9 @@ Phases 1–5 complete. Phase 6 (polish) in progress.
 - Flutter framework selection UI in wizard (Flutter marked "Coming soon")
 - Image viewer for file tabs (auto-detects image MIME types)
 - UI polish across chat, tabs, editor, terminal, git, console panels
+- Framework-agnostic preview system (Expo + Flutter dev server support)
+- Flutter scaffolder (`scaffolderFlutter.ts`)
+- Feature packs system (`feature-packs/` directory with markdown templates)
 
 **Remaining in Phase 6:**
 - Error boundaries for component failure recovery
@@ -308,3 +314,8 @@ Phases 1–5 complete. Phase 6 (polish) in progress.
 - Additional keyboard shortcuts
 - Theme polish
 - AI provider stubs (OpenRouter/Gemini for future swapability)
+
+**Flutter integration status** (see `flutter-integration-plan.md`):
+- Phase A (Local Preview): Mostly complete — wizard UI, dev server scanner, preview panel all done. Remaining: hot reload via stdin `r` on file changes.
+- Phase B (Cloud Build via Codemagic): Not started
+- Phase C (OTA via Shorebird): Not started

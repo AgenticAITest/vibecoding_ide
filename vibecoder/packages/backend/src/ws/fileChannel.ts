@@ -1,34 +1,53 @@
 import type { WebSocket } from 'ws';
 import type { WSMessage } from '@vibecoder/shared';
-import { startWatcher, onFileChange, getFileTree } from '../services/fileSystem.js';
+import { onFileChange, getFileTree, getProjectDir } from '../services/fileSystem.js';
+import { getWsUserId } from './wsAuth.js';
 
+// Track each client's file watcher cleanup function
+const clientCleanups = new Map<WebSocket, () => void>();
 const fileClients = new Set<WebSocket>();
 
 export function registerFileClient(ws: WebSocket): void {
   fileClients.add(ws);
+
+  // Set up per-user file watching
+  const userId = getWsUserId(ws);
+  if (!userId) return;
+
+  const projectDir = getProjectDir(userId);
+  const cleanup = onFileChange(projectDir, (changes) => {
+    if (ws.readyState === 1 /* OPEN */) {
+      ws.send(JSON.stringify({
+        channel: 'files',
+        type: 'files:changed',
+        payload: { type: 'files:changed', changes },
+      } satisfies WSMessage));
+    }
+  });
+
+  clientCleanups.set(ws, cleanup);
 }
 
 export function unregisterFileClient(ws: WebSocket): void {
   fileClients.delete(ws);
-}
-
-function broadcast(msg: WSMessage): void {
-  const data = JSON.stringify(msg);
-  for (const client of fileClients) {
-    if (client.readyState === 1 /* OPEN */) {
-      client.send(data);
-    }
+  const cleanup = clientCleanups.get(ws);
+  if (cleanup) {
+    cleanup();
+    clientCleanups.delete(ws);
   }
 }
 
 export async function handleFileMessage(ws: WebSocket, msg: WSMessage): Promise<void> {
   switch (msg.type) {
     case 'files:subscribe':
+      // Re-register to pick up any project dir changes
+      unregisterFileClient(ws);
       registerFileClient(ws);
       break;
 
     case 'files:requestTree': {
-      const tree = await getFileTree();
+      const userId = getWsUserId(ws);
+      const tree = await getFileTree(undefined, userId);
       ws.send(JSON.stringify({
         channel: 'files',
         type: 'files:treeRefresh',
@@ -40,15 +59,6 @@ export async function handleFileMessage(ws: WebSocket, msg: WSMessage): Promise<
 }
 
 export function initFileChannel(): void {
-  startWatcher();
-
-  onFileChange((changes) => {
-    broadcast({
-      channel: 'files',
-      type: 'files:changed',
-      payload: { type: 'files:changed', changes },
-    });
-  });
-
-  console.log('File channel initialized');
+  // No global watcher — watchers are started per-user when they connect
+  console.log('File channel initialized (per-user watchers)');
 }

@@ -1,12 +1,15 @@
 import { useEffect } from 'react';
 import { AppShell } from './components/layout/AppShell';
+import { LoginPage } from './components/auth/LoginPage';
+import { useAuthStore } from './store/authStore';
 import { useUIStore } from './store/uiStore';
 import { useFileWatcher } from './hooks/useFileWatcher';
 import { usePreviewWatcher } from './hooks/usePreviewWatcher';
 import { useHotReload } from './hooks/useHotReload';
+import { reconnectWs } from './hooks/useWebSocket';
 import './App.css';
 
-function App() {
+function AuthenticatedApp() {
   const toggleFileTree = useUIStore((s) => s.toggleFileTree);
 
   // Start file tree loading and WS file change listening
@@ -30,6 +33,21 @@ function App() {
   }, [toggleFileTree]);
 
   return <AppShell />;
+}
+
+function App() {
+  const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
+
+  // Connect/reconnect WebSocket when auth state changes
+  useEffect(() => {
+    if (token) {
+      reconnectWs();
+    }
+  }, [token]);
+
+  if (!user) return <LoginPage />;
+  return <AuthenticatedApp />;
 }
 
 export default App;

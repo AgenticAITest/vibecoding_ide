@@ -4,10 +4,11 @@ import { readFile } from 'fs/promises';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import type { WSMessage, AIStreamEvent } from '@vibecoder/shared';
 import { getProjectDir } from '../services/fileSystem.js';
+import { getWsUserId } from './wsAuth.js';
 
-async function readProjectClaudeMd(): Promise<string> {
+async function readProjectClaudeMd(projectDir: string): Promise<string> {
   try {
-    const claudeMdPath = path.join(getProjectDir(), 'CLAUDE.md');
+    const claudeMdPath = path.join(projectDir, 'CLAUDE.md');
     return await readFile(claudeMdPath, 'utf-8');
   } catch {
     return '';
@@ -49,20 +50,23 @@ async function handleSend(ws: WebSocket, payload: { message: string; sessionId?:
   const abortController = new AbortController();
   activeQueries.set(ws, { abortController });
 
+  const userId = getWsUserId(ws);
+  const projectDir = getProjectDir(userId);
+
   // If an image was attached, augment the prompt so Claude CLI reads it
   let prompt = payload.message;
   if (payload.imagePath) {
-    const absolutePath = path.join(getProjectDir(), payload.imagePath);
+    const absolutePath = path.join(projectDir, payload.imagePath);
     prompt += `\n\n[The user has attached an image file. Read and analyze it: ${absolutePath}]`;
   }
 
   try {
     console.log('[AI] Starting query...');
-    const claudeMdContent = await readProjectClaudeMd();
+    const claudeMdContent = await readProjectClaudeMd(projectDir);
     const q = query({
       prompt,
       options: {
-        cwd: getProjectDir(),
+        cwd: projectDir,
         includePartialMessages: true,
         permissionMode: 'bypassPermissions',
         allowDangerouslySkipPermissions: true,

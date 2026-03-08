@@ -1,6 +1,11 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import type { ScaffoldConfig, ParsedApi } from '@vibecoder/shared';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const FEATURE_PACKS_DIR = path.resolve(__dirname, '..', '..', 'feature-packs');
 
 // Internal config with resolved projectPath
 interface InternalConfig extends ScaffoldConfig {
@@ -210,6 +215,20 @@ function genClaudeMd(config: InternalConfig): string {
     lines.push('and run the VibeCoder API parser to regenerate `endpoints.ts`.');
   }
   lines.push('');
+
+  // Feature Packs section
+  lines.push('## Feature Packs');
+  lines.push('');
+  lines.push('Implementation guides for common features are available in `.vibecoder/feature-packs/`.');
+  lines.push('When the user asks about a feature, check if a matching guide exists and follow its constraints.');
+  lines.push('');
+  lines.push('| Keyword triggers | Feature pack file |');
+  lines.push('|-----------------|-------------------|');
+  lines.push('| voice, speech, STT, TTS, microphone, voice login | `voice-login.md` |');
+  lines.push('');
+  lines.push('**How to use:** Read the full `.md` file before implementing. Follow all constraints and acceptance criteria exactly.');
+  lines.push('');
+
   return lines.join('\n');
 }
 
@@ -778,6 +797,20 @@ export async function scaffold(config: ScaffoldConfig, projectPath: string): Pro
   for (const df of config.designFiles) {
     const decoded = Buffer.from(df.contentBase64, 'base64').toString('utf-8');
     await write(path.join(root, '.vibecoder', 'designs', df.name), decoded);
+  }
+
+  // Feature packs — copy all .md files from central source
+  await dir(path.join(root, '.vibecoder', 'feature-packs'));
+  try {
+    const packFiles = await fs.readdir(FEATURE_PACKS_DIR);
+    for (const file of packFiles) {
+      if (file.endsWith('.md')) {
+        const content = await fs.readFile(path.join(FEATURE_PACKS_DIR, file), 'utf-8');
+        await write(path.join(root, '.vibecoder', 'feature-packs', file), content);
+      }
+    }
+  } catch {
+    // feature-packs directory may not exist yet — skip silently
   }
 
   // Logo
