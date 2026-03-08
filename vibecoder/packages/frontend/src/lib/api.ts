@@ -157,6 +157,11 @@ export const gitApi = {
     request<{ ok: boolean }>('/api/git/credentials', json({ token, host })),
 };
 
+export const featurePackApi = {
+  list: () =>
+    request<{ packs: { name: string; filename: string }[] }>('/api/files/feature-packs'),
+};
+
 export const adminApi = {
   listUsers: () =>
     request<{ users: User[] }>('/api/auth/users'),

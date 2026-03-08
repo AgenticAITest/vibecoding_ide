@@ -15,6 +15,31 @@ async function readProjectClaudeMd(projectDir: string): Promise<string> {
   }
 }
 
+/**
+ * Detect [Feature Pack: <name>] tags in the message, read each .md file,
+ * and replace the tag with the full feature pack content.
+ */
+async function expandFeaturePacks(prompt: string, projectDir: string): Promise<string> {
+  const tagPattern = /\[Feature Pack:\s*([^\]]+)\]/g;
+  const matches = [...prompt.matchAll(tagPattern)];
+  if (matches.length === 0) return prompt;
+
+  let result = prompt;
+  for (const match of matches) {
+    const packName = match[1].trim();
+    const safeName = packName.replace(/[^a-zA-Z0-9_-]/g, '');
+    const fpPath = path.join(projectDir, '.vibecoder', 'feature-packs', `${safeName}.md`);
+    try {
+      const content = await readFile(fpPath, 'utf-8');
+      const injection = `\n\n---\n**Feature Pack: ${packName}**\n\n${content}\n---\n`;
+      result = result.replace(match[0], injection);
+    } catch {
+      // feature pack file not found — leave the tag as-is
+    }
+  }
+  return result;
+}
+
 interface ActiveQuery {
   abortController: AbortController;
 }
@@ -61,6 +86,9 @@ async function handleSend(ws: WebSocket, payload: { message: string; sessionId?:
   }
 
   try {
+    // Expand any [Feature Pack: <name>] tags in the prompt
+    prompt = await expandFeaturePacks(prompt, projectDir);
+
     console.log('[AI] Starting query...');
     const claudeMdContent = await readProjectClaudeMd(projectDir);
     const q = query({

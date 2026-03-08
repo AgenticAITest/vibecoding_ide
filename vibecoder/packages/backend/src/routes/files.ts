@@ -195,6 +195,46 @@ filesRouter.post('/rename', async (req, res) => {
   }
 });
 
+// GET /api/files/feature-packs — list available feature packs in .vibecoder/feature-packs/
+filesRouter.get('/feature-packs', async (req, res) => {
+  try {
+    const projectDir = getProjectDir(req.user!.userId);
+    const fpDir = path.join(projectDir, '.vibecoder', 'feature-packs');
+    let entries: string[] = [];
+    try {
+      const files = await fs.readdir(fpDir);
+      entries = files.filter((f) => f.endsWith('.md'));
+    } catch {
+      // directory doesn't exist — no feature packs
+    }
+    const packs = entries.map((f) => ({
+      name: f.replace(/\.md$/, ''),
+      filename: f,
+    }));
+    res.json({ packs });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/files/feature-packs/:name — read a specific feature pack
+filesRouter.get('/feature-packs/:name', async (req, res) => {
+  try {
+    const projectDir = getProjectDir(req.user!.userId);
+    const name = (req.params.name as string).replace(/[^a-zA-Z0-9_-]/g, '');
+    const fpPath = path.join(projectDir, '.vibecoder', 'feature-packs', `${name}.md`);
+    const normalized = path.normalize(fpPath);
+    if (!normalized.startsWith(path.normalize(projectDir))) {
+      res.status(403).json({ error: 'Path traversal detected' });
+      return;
+    }
+    const content = await fs.readFile(fpPath, 'utf-8');
+    res.json({ name, content });
+  } catch {
+    res.status(404).json({ error: 'Feature pack not found' });
+  }
+});
+
 // GET /api/files/project-dir
 filesRouter.get('/project-dir', (req, res) => {
   res.json({ dir: getProjectDir(req.user!.userId) });
