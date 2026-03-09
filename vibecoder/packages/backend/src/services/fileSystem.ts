@@ -5,10 +5,11 @@ import type { FileNode, FileChange, FileChangeType } from '@vibecoder/shared';
 
 // --- Projects base directory ---
 
-// Base: vibecoding_ide/projects/
-const PROJECTS_BASE = path.resolve(
-  import.meta.dirname, '..', '..', '..', '..', '..', 'projects'
-);
+// In Docker, set VIBECODER_PROJECTS_BASE=/projects
+// In dev, resolve relative to source: vibecoding_ide/projects/
+const PROJECTS_BASE = process.env.VIBECODER_PROJECTS_BASE
+  ? path.resolve(process.env.VIBECODER_PROJECTS_BASE)
+  : path.resolve(import.meta.dirname, '..', '..', '..', '..', '..', 'projects');
 
 // Per-user active project directories: userId → absolute path
 const userProjectDirs = new Map<string, string>();

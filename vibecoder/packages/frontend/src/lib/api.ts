@@ -79,6 +79,29 @@ export const projectApi = {
 
   activate: (name: string) =>
     request<{ ok: boolean; path: string }>(`/api/projects/${encodeURIComponent(name)}/activate`, json({})),
+
+  importZip: async (file: File, name: string): Promise<{ project: ProjectInfo; framework: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', name);
+    const res = await fetch('/api/projects/import-zip', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: formData,
+    });
+    if (res.status === 401) {
+      useAuthStore.getState().logout();
+      throw new Error('Session expired');
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(body.error || res.statusText);
+    }
+    return res.json();
+  },
+
+  importGit: (url: string, name?: string, token?: string) =>
+    request<{ project: ProjectInfo; framework: string }>('/api/projects/import-git', json({ url, name, token })),
 };
 
 export const uploadApi = {

@@ -53,6 +53,10 @@ authRouter.post('/users', requireAuth, requireAdmin, async (req, res) => {
       res.status(400).json({ error: 'Username and password required' });
       return;
     }
+    if (password.length < 6) {
+      res.status(400).json({ error: 'Password must be at least 6 characters' });
+      return;
+    }
     const user = await createUser(username.trim(), password, (role === 'admin' ? 'admin' : 'user'));
     res.json({ user });
   } catch (err: any) {
@@ -86,6 +90,10 @@ authRouter.put('/users/:id/password', requireAuth, requireAdmin, async (req, res
     const { password } = req.body as { password: string };
     if (!password) {
       res.status(400).json({ error: 'Password required' });
+      return;
+    }
+    if (password.length < 6) {
+      res.status(400).json({ error: 'Password must be at least 6 characters' });
       return;
     }
     await updatePassword(req.params.id as string, password);

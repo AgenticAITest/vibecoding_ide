@@ -313,10 +313,10 @@ Add an "Import" option to the project creation flow:
 
 | Step | Phase | Effort | Dependencies |
 |------|-------|--------|-------------|
-| **1** | HTTPS (Caddy reverse proxy) | Small | None |
-| **2** | Multi-User (auth, isolation) | Large | None (but HTTPS recommended first) |
-| **3** | AI Provider Stubs | Medium | None (but cleaner after multi-user) |
-| **4** | Import App | Small–Medium | Multi-user (needs userId for project path) |
+| **1** | HTTPS (Caddy reverse proxy) | Small | None | **DONE** |
+| **2** | Multi-User (auth, isolation) | Large | None (but HTTPS recommended first) | **DONE** |
+| **3** | AI Provider Stubs | Medium | None (but cleaner after multi-user) | |
+| **4** | Import App | Small–Medium | Multi-user (needs userId for project path) | **DONE** |
 
 ---
 

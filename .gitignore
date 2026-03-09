@@ -5,5 +5,5 @@ dist/
 .DS_Store
 Thumbs.db
 .claude/
-projects/
+/projects/
 phone_wrapper.png

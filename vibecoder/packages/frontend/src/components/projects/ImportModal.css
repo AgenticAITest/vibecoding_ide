@@ -1,0 +1,207 @@
+.import-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.import-modal {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  width: 480px;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
+
+.import-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.import-modal__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.import-modal__close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.import-modal__close:hover {
+  color: var(--text-primary);
+}
+
+.import-modal__tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.import-modal__tab {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--transition-base), border-color var(--transition-base);
+}
+
+.import-modal__tab:hover {
+  color: var(--text-secondary);
+}
+
+.import-modal__tab--active {
+  color: var(--accent-primary);
+  border-bottom-color: var(--accent-primary);
+}
+
+.import-modal__body {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.import-modal__label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.import-modal__optional {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.import-modal__input {
+  padding: var(--space-3);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  outline: none;
+  transition: border-color var(--transition-base);
+}
+
+.import-modal__input:focus {
+  border-color: var(--accent-primary);
+}
+
+.import-modal__input:disabled {
+  opacity: 0.5;
+}
+
+.import-modal__section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.import-modal__file-btn {
+  flex: 1;
+  padding: var(--space-3);
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color var(--transition-base), background var(--transition-base);
+}
+
+.import-modal__file-btn:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+  background: var(--bg-tertiary);
+}
+
+.import-modal__file-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.import-modal__file-info {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.import-modal__error {
+  font-size: 13px;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+}
+
+.import-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--border-color);
+}
+
+.import-modal__btn {
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-md);
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition-base), opacity var(--transition-base);
+}
+
+.import-modal__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.import-modal__btn--primary {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.import-modal__btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.import-modal__btn--secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.import-modal__btn--secondary:hover:not(:disabled) {
+  background: var(--border-color);
+  color: var(--text-primary);
+}

@@ -61,6 +61,7 @@ RUN mkdir -p /projects/default-app
 
 ENV NODE_ENV=production
 ENV PORT=3001
+ENV VIBECODER_PROJECTS_BASE=/projects
 ENV VIBECODER_PROJECT_DIR=/projects/default-app
 # In production, CORS is not needed (same origin), but allow override
 ENV VIBECODER_CORS_ORIGIN=*

@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import {
   getProjectDir,
+  getUserProjectsDir,
   setProjectDir,
   getFileTree,
   readFile,
@@ -249,6 +250,15 @@ filesRouter.post('/project-dir', (req, res) => {
   }
   try {
     const userId = req.user!.userId;
+
+    // Validate that the target dir is within the user's project directory
+    const userBase = path.normalize(getUserProjectsDir(userId));
+    const normalizedDir = path.normalize(path.resolve(dir));
+    if (!normalizedDir.startsWith(userBase)) {
+      res.status(403).json({ error: 'Path outside user project directory' });
+      return;
+    }
+
     const oldDir = getProjectDir(userId);
     stopWatcher(oldDir);
     setProjectDir(userId, dir);

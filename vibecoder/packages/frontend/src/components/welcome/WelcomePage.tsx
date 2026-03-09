@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { useTabStore } from '../../store/tabStore';
 import { useWizardStore } from '../../store/wizardStore';
+import { ImportModal } from '../projects/ImportModal';
 import './WelcomePage.css';
 
 export function WelcomePage() {
   const openTab = useTabStore((s) => s.openTab);
   const resetWizard = useWizardStore((s) => s.reset);
+  const [showImport, setShowImport] = useState(false);
 
   const focusChatInput = () => {
     const textarea = document.querySelector('.chat-input__textarea') as HTMLTextAreaElement | null;
@@ -38,6 +41,9 @@ export function WelcomePage() {
           <button className="welcome-page__btn welcome-page__btn--secondary" onClick={handleCreateProject}>
             Create Project
           </button>
+          <button className="welcome-page__btn welcome-page__btn--secondary" onClick={() => setShowImport(true)}>
+            Import Project
+          </button>
         </div>
         <div className="welcome-page__hints">
           <div className="welcome-page__hint">
@@ -54,6 +60,12 @@ export function WelcomePage() {
           </div>
         </div>
       </div>
+      {showImport && (
+        <ImportModal
+          onClose={() => setShowImport(false)}
+          onImported={() => {}}
+        />
+      )}
     </div>
   );
 }

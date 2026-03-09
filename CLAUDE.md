@@ -41,7 +41,7 @@ vibecoding_ide/                    ← repo root
 │   ├── package.json               ← workspace config + root scripts
 │   ├── tsconfig.base.json         ← shared TypeScript config (strict, ES2022, NodeNext)
 │   └── packages/
-│       ├── shared/   → @vibecoder/shared    — TypeScript types only (no build step, exports via src/index.ts)
+│       ├── shared/   → @vibecoder/shared    — TypeScript types only (build: tsc, exports via src/index.ts)
 │       ├── backend/  → @vibecoder/backend   — Express 5 + ws + node-pty (port 3001)
 │       │   └── feature-packs/               — markdown feature pack templates (e.g., voice-login)
 │       └── frontend/ → @vibecoder/frontend  — React 19 + Vite 7 (port 5173)
@@ -198,6 +198,8 @@ packages/shared/src/types/
 | POST | `/api/projects/parse-api` | Parse API spec string (OpenAPI/Swagger) |
 | POST | `/api/projects/fetch-api-url` | Fetch & parse remote API spec |
 | POST | `/api/projects` | Create project (runs scaffolder) |
+| POST | `/api/projects/import-zip` | Import project from ZIP upload (multipart) |
+| POST | `/api/projects/import-git` | Clone git repo as new project |
 | DELETE | `/api/projects/:name` | Delete project |
 | POST | `/api/projects/:name/activate` | Activate project |
 | GET | `/api/git/status` | Current repo status |
@@ -214,6 +216,10 @@ packages/shared/src/types/
 | POST | `/api/git/checkout` | Switch branch |
 | GET | `/api/git/diff?path=` | Diff output |
 | * | `/api/preview-proxy/*` | Proxy to dev server (Metro/Flutter) |
+
+### Feature Packs
+
+Markdown templates in `packages/backend/feature-packs/` (e.g., `voice-login.md`). Users pick a feature pack from the chat input UI, which injects the template content into the AI context as a structured guide for implementing that feature. Add new packs as `.md` files in that directory.
 
 ### Tab System
 

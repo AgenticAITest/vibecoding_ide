@@ -63,8 +63,13 @@ function connect() {
   };
 
   ws.onclose = () => {
-    console.log('WS disconnected, reconnecting...');
-    scheduleReconnect();
+    // Only reconnect if we're still authenticated
+    if (useAuthStore.getState().token) {
+      console.log('WS disconnected, reconnecting...');
+      scheduleReconnect();
+    } else {
+      console.log('WS disconnected (logged out)');
+    }
   };
 
   ws.onerror = () => {

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import {
   listProjects,
   validateProjectName,
@@ -8,8 +9,10 @@ import {
   activateProject,
 } from '../services/project.js';
 import { parse } from '../services/apiParser.js';
-import { getProjectDir } from '../services/fileSystem.js';
+import { getProjectDir, getUserProjectsDir } from '../services/fileSystem.js';
+import { importZip, importGit } from '../services/importer.js';
 import type { ScaffoldConfig } from '@vibecoder/shared';
+import path from 'path';
 
 export const projectsRouter = Router();
 
@@ -97,6 +100,115 @@ projectsRouter.post('/', async (req, res) => {
     await activateProject(userId, config.projectName);
 
     res.json({ project });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// --- Import endpoints ---
+
+const importUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB max for ZIP
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      'application/zip',
+      'application/x-zip-compressed',
+      'application/x-zip',
+      'application/octet-stream',
+    ];
+    if (allowed.includes(file.mimetype) || file.originalname.endsWith('.zip')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only .zip files are allowed'));
+    }
+  },
+});
+
+// POST /api/projects/import-zip — upload and extract a ZIP as a new project
+projectsRouter.post('/import-zip', importUpload.single('file'), async (req, res) => {
+  try {
+    const userId = req.user!.userId;
+    const name = req.body.name as string;
+
+    const validation = validateProjectName(name);
+    if (!validation.valid) {
+      res.status(400).json({ error: validation.error });
+      return;
+    }
+
+    if (await projectExists(userId, name)) {
+      res.status(409).json({ error: `Project "${name}" already exists` });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ error: 'No ZIP file provided' });
+      return;
+    }
+
+    const targetDir = path.join(getUserProjectsDir(userId), name);
+    const { framework } = await importZip(req.file.buffer, targetDir);
+
+    await activateProject(userId, name);
+
+    res.json({
+      project: {
+        name,
+        path: targetDir,
+        createdAt: new Date().toISOString(),
+      },
+      framework,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /api/projects/import-git — clone a git repo as a new project
+projectsRouter.post('/import-git', async (req, res) => {
+  try {
+    const userId = req.user!.userId;
+    const { url, name, token } = req.body as {
+      url: string;
+      name?: string;
+      token?: string;
+    };
+
+    if (!url) {
+      res.status(400).json({ error: 'Repository URL is required' });
+      return;
+    }
+
+    // Derive project name from URL if not provided
+    const projectName = name || url.split('/').pop()?.replace(/\.git$/, '') || 'imported-project';
+
+    const validation = validateProjectName(projectName);
+    if (!validation.valid) {
+      res.status(400).json({ error: validation.error });
+      return;
+    }
+
+    if (await projectExists(userId, projectName)) {
+      res.status(409).json({ error: `Project "${projectName}" already exists` });
+      return;
+    }
+
+    const targetDir = path.join(getUserProjectsDir(userId), projectName);
+    const { framework } = await importGit(url, targetDir, token);
+
+    await activateProject(userId, projectName);
+
+    res.json({
+      project: {
+        name: projectName,
+        path: targetDir,
+        createdAt: new Date().toISOString(),
+      },
+      framework,
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: message });
