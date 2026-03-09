@@ -33,7 +33,7 @@ No Node.js installation is needed on the server — everything runs inside Docke
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_ORG/vibecoding_ide.git
+git clone https://github.com/AgenticAITest/vibecoding_ide.git
 cd vibecoding_ide
 ```
 
@@ -204,6 +204,8 @@ Internet
 | `ADMIN_PASSWORD` | `admin123` | Initial admin account password. **Change in production.** |
 | `NODE_ENV` | `production` | Enables static frontend serving from Express |
 | `PORT` | `3001` | Backend listen port (inside container) |
+| `VIBECODER_PROJECTS_BASE` | (relative to source) | Base directory for user projects. Set to `/projects` in Docker. |
+| `VIBECODER_CORS_ORIGIN` | `http://localhost:5173` | Allowed CORS origin. Set to `*` in Docker (same-origin via Caddy). |
 
 ---
 
@@ -328,13 +330,21 @@ For local development without Docker:
    docker compose -f docker-compose.dev.yml up -d
    ```
 
-3. **Install dependencies and start:**
+3. **Configure environment:**
+   ```bash
+   cp .env.example .env
+   # .env.example already has DATABASE_URL pointing to port 5434
+   ```
+
+4. **Install dependencies and start:**
    ```bash
    cd vibecoder
    npm install
+   # Source env vars and start
+   set -a && source ../.env && set +a
    npm run dev
    ```
 
-4. **Open:** http://localhost:5173
+5. **Open:** http://localhost:5173
 
-The dev setup uses PostgreSQL on port 5434 (to avoid conflicts with existing instances).
+The dev compose file exposes PostgreSQL on port 5434 (to avoid conflicts with existing instances). The `.env.example` DATABASE_URL is pre-configured for this port.

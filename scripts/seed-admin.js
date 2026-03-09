@@ -18,9 +18,8 @@
  *   node scripts/seed-admin.js
  */
 
-import pg from 'pg';
-import bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+const pg = require('pg');
+const bcrypt = require('bcrypt');
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
