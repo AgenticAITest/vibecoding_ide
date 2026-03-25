@@ -10,6 +10,7 @@ import { GitPanel } from '../git/GitPanel';
 import { ProjectList } from '../projects/ProjectList';
 import { ConsolePanel } from '../console/ConsolePanel';
 import { AdminPanel } from '../admin/AdminPanel';
+import { SettingsPanel } from '../settings/SettingsPanel';
 
 const IMAGE_EXTENSIONS = new Set([
   'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'bmp',
@@ -45,6 +46,8 @@ function renderTab(tab: Tab) {
       return <ConsolePanel />;
     case 'admin':
       return <AdminPanel />;
+    case 'settings':
+      return <SettingsPanel />;
     default:
       return (
         <div style={{ padding: 'var(--space-6)', color: 'var(--text-muted)' }}>

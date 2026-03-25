@@ -1,4 +1,4 @@
-export type TabType = 'welcome' | 'editor' | 'terminal' | 'preview' | 'wizard' | 'git' | 'projects' | 'console' | 'admin';
+export type TabType = 'welcome' | 'editor' | 'terminal' | 'preview' | 'wizard' | 'git' | 'projects' | 'console' | 'admin' | 'settings';
 
 export interface Tab {
   id: string;

@@ -9,6 +9,7 @@ import { projectsRouter } from './routes/projects.js';
 import { gitRouter } from './routes/git.js';
 import { previewRouter } from './routes/preview.js';
 import { authRouter } from './routes/auth.js';
+import { settingsRouter } from './routes/settings.js';
 import { initFileChannel } from './ws/fileChannel.js';
 import { getProjectDir } from './services/fileSystem.js';
 import { requireAuth } from './middleware/auth.js';
@@ -40,6 +41,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/files', requireAuth, filesRouter);
 app.use('/api/projects', requireAuth, projectsRouter);
 app.use('/api/git', requireAuth, gitRouter);
+app.use('/api/settings', requireAuth, settingsRouter);
 
 // Serve uploaded images statically (auth required)
 app.use('/api/uploads', requireAuth, (req, res, next) => {

@@ -2,10 +2,14 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import type { ScaffoldConfig, ParsedApi } from '@vibecoder/shared';
+import { getOrResolveDeps, type ResolvedExpoDeps } from './dependencyResolver.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const FEATURE_PACKS_DIR = path.resolve(__dirname, '..', '..', 'feature-packs');
+
+/** Pinned SDK major — change when deliberately upgrading */
+const EXPO_SDK_MAJOR = 52;
 
 // Internal config with resolved projectPath
 interface InternalConfig extends ScaffoldConfig {
@@ -22,7 +26,12 @@ async function write(p: string, content: string): Promise<void> {
 
 // ---------- File generators ----------
 
-function genPackageJson(name: string): string {
+/** Look up a package version from bundledModules, falling back to provided default */
+function modVer(deps: ResolvedExpoDeps, pkg: string, fallback: string): string {
+  return deps.bundledModules[pkg] || fallback;
+}
+
+function genPackageJson(name: string, deps: ResolvedExpoDeps): string {
   return JSON.stringify({
     name,
     version: '1.0.0',
@@ -34,23 +43,24 @@ function genPackageJson(name: string): string {
       web: 'expo start --web',
     },
     dependencies: {
-      expo: '~52.0.0',
-      'expo-router': '~4.0.0',
-      'expo-status-bar': '~2.0.0',
-      'expo-linking': '~7.0.0',
-      'expo-constants': '~17.0.0',
-      react: '18.3.1',
-      'react-native': '0.76.6',
-      'react-native-safe-area-context': '4.14.1',
-      'react-native-screens': '~4.4.0',
+      expo: `~${deps.expoVersion}`,
+      'expo-router': modVer(deps, 'expo-router', '~4.0.0'),
+      'expo-status-bar': modVer(deps, 'expo-status-bar', '~2.0.0'),
+      'expo-linking': modVer(deps, 'expo-linking', '~7.0.0'),
+      'expo-constants': modVer(deps, 'expo-constants', '~17.0.0'),
+      react: deps.react,
+      'react-dom': deps.reactDom,
+      'react-native': deps.reactNative,
+      'react-native-safe-area-context': modVer(deps, 'react-native-safe-area-context', '4.14.1'),
+      'react-native-screens': modVer(deps, 'react-native-screens', '~4.4.0'),
       '@react-navigation/native': '^7.0.0',
-      '@expo/vector-icons': '^14.0.0',
-      'expo-asset': '~11.0.0',
-      'react-native-web': '~0.19.13',
-      '@expo/metro-runtime': '~4.0.0',
+      '@expo/vector-icons': modVer(deps, '@expo/vector-icons', '^14.0.0'),
+      'expo-asset': modVer(deps, 'expo-asset', '~11.0.0'),
+      'react-native-web': modVer(deps, 'react-native-web', '~0.19.13'),
+      '@expo/metro-runtime': modVer(deps, '@expo/metro-runtime', '~4.0.0'),
     },
     devDependencies: {
-      '@types/react': '~18.3.0',
+      '@types/react': `~${deps.react.split('.').slice(0, 2).join('.')}.0`,
       typescript: '^5.3.0',
       '@babel/core': '^7.24.0',
     },
@@ -771,6 +781,11 @@ export async function scaffold(config: ScaffoldConfig, projectPath: string): Pro
   const root = projectPath;
   const internal: InternalConfig = { ...config, projectPath };
 
+  // Resolve latest compatible Expo dependencies (cached or from npm registry)
+  console.log(`[Scaffolder] Resolving Expo SDK ${EXPO_SDK_MAJOR} dependencies...`);
+  const expoDeps = await getOrResolveDeps(EXPO_SDK_MAJOR);
+  console.log(`[Scaffolder] Using expo@${expoDeps.expoVersion} (resolved ${expoDeps.resolvedAt})`);
+
   // Create directories
   await dir(path.join(root, '.vibecoder', 'designs'));
   await dir(path.join(root, 'assets'));
@@ -780,7 +795,7 @@ export async function scaffold(config: ScaffoldConfig, projectPath: string): Pro
   await dir(path.join(root, 'src', 'components'));
 
   // Root config files
-  await write(path.join(root, 'package.json'), genPackageJson(config.projectName));
+  await write(path.join(root, 'package.json'), genPackageJson(config.projectName, expoDeps));
   await write(path.join(root, 'app.json'), genAppJson(config.projectName, config.colors.primary));
   await write(path.join(root, 'tsconfig.json'), genTsConfig());
   await write(path.join(root, 'babel.config.js'), genBabelConfig());

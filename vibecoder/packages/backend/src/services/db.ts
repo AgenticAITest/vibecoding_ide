@@ -1,7 +1,7 @@
 import pg from 'pg';
 
 const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://vibecoder:vibecoder_dev@localhost:5432/vibecoder',
+  connectionString: process.env.DATABASE_URL || 'postgresql://vibecoder:vibecoder_dev@localhost:5434/vibecoder',
 });
 
 export async function query(text: string, params?: unknown[]) {

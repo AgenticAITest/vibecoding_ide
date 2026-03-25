@@ -3,6 +3,7 @@ import { usePreviewStore } from '../../store/previewStore';
 import { useTabStore } from '../../store/tabStore';
 import { useTerminalStore } from '../../store/terminalStore';
 import { useFileStore } from '../../store/fileStore';
+import { useAuthStore } from '../../store/authStore';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import type { WSMessage, ProjectFramework } from '@vibecoder/shared';
 import './PreviewPanel.css';
@@ -73,10 +74,19 @@ export function PreviewPanel() {
     return null;
   }, [nativeUrl, webUrl, isFlutter]);
 
+  // Auth token for iframe URL — iframes can't send Authorization headers,
+  // so we pass the token as a query param for the preview proxy.
+  const authToken = useAuthStore((s) => s.token);
+
   // Direct dev server URL — used for display only.
   const devServerUrl = devServerPort ? `http://localhost:${devServerPort}` : null;
   // Proxied URL — routes through backend so we can inject the console interceptor.
-  const proxyUrl = devServerPort ? `/api/preview-proxy/${devServerPort}/` : null;
+  // Includes auth token as query param since iframes can't set custom headers.
+  const proxyUrl = devServerPort && authToken
+    ? `/api/preview-proxy/${devServerPort}/?token=${encodeURIComponent(authToken)}`
+    : devServerPort
+      ? `/api/preview-proxy/${devServerPort}/`
+      : null;
   const displayUrl = nativeUrl || webUrl || '';
 
   // --- Terminal channel: listen for terminal:exit ---
@@ -119,7 +129,9 @@ export function PreviewPanel() {
         // Use GET, not HEAD — Flutter's web server returns 404 for HEAD.
         // Check for any non-502 status: 502 means proxy can't connect,
         // anything else means the dev server is responding.
-        const res = await fetch(`/api/preview-proxy/${devServerPort}/`);
+        const res = await fetch(`/api/preview-proxy/${devServerPort}/`, {
+              headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+            });
         if (!cancelled && res.status !== 502) {
           setServerReady(true);
         }

@@ -185,6 +185,24 @@ export const featurePackApi = {
     request<{ packs: { name: string; filename: string }[] }>('/api/files/feature-packs'),
 };
 
+export interface ResolvedExpoDeps {
+  sdkMajor: number;
+  expoVersion: string;
+  react: string;
+  reactDom: string;
+  reactNative: string;
+  bundledModules: Record<string, string>;
+  resolvedAt: string;
+}
+
+export const settingsApi = {
+  getExpoDeps: () =>
+    request<{ deps: ResolvedExpoDeps; stale: boolean }>('/api/settings/expo-deps'),
+
+  refreshExpoDeps: () =>
+    request<{ deps: ResolvedExpoDeps; refreshed: boolean }>('/api/settings/refresh-expo-deps', { method: 'POST' }),
+};
+
 export const adminApi = {
   listUsers: () =>
     request<{ users: User[] }>('/api/auth/users'),
